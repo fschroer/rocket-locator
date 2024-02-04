@@ -33,6 +33,8 @@ private:
   SensorValues sensor_values_;
   FlightStats flight_stats_;
 
+  const char* lora_startup_message_ = "Rocket Locator v1.2\n";
+
   int peripheral_interrupt_count_ = 0;
   int battery_level_ = 0;
   int flight_stats_delay_count_ = 0;
@@ -42,6 +44,12 @@ private:
 
   DeviceState device_state_ = kRunning;
   uint8_t config_cycle_count_ = 0;
+
+  AltimeterArchiveMetadata altimeter_archive_metadata_;
+  AccelerometerArchiveMetadata accelerometer_archive_metadata_;
+  bool archive_opened_ = false;
+  bool altimeter_archive_closed_ = false;
+  bool accelerometer_archive_closed_ = false;
 
   void SetDeviceState();
   void ConfigDevice(float x_axis, float y_axis, float z_axis);

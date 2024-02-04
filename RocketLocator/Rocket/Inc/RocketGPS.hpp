@@ -1,7 +1,8 @@
 #ifndef ROCKET_GPS
 #define ROCKET_GPS
 
-#include "RocketDefs.hpp"
+//#include "RocketDefs.hpp"
+#include "FlightManager.hpp"
 #include "stdlib.h"
 #include "string.h"
 #include "usart.h"
@@ -13,7 +14,7 @@
 #define GPS_RX_PIN PA2
 
 struct __attribute__ ((packed)) Telemetry {
- 	char sentence_type[GPS_SENTENCE_TYPE_LEN] = {0};
+  char sentence_type[GPS_SENTENCE_TYPE_LEN] = {0};
   int date_stamp;
   int time_stamp;
   double latitude;
@@ -23,7 +24,7 @@ struct __attribute__ ((packed)) Telemetry {
   float hdop;
   float altitude;
   char checksum[GPS_SENTENCE_CHECKSUM_LEN] = {0};
-  uint8_t flight_state = flightStates::kWaitingLDA;
+  uint8_t flight_state = flightStates::kWaitingLaunch;
 };
 
 class RocketGPS{
@@ -40,6 +41,8 @@ public:
   void GgaToPacket(uint8_t *packet);
   uint8_t GgaSize();
   void SetFlightState(uint8_t flight_state);
+  int GetDate();
+  int GetTime();
 private:
   uint16_t gps_msg_buffer_index_ = 0;
   uint8_t gps_msg_buffer_[RX_BUFFER_SIZE];

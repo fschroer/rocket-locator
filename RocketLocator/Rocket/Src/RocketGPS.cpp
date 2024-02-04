@@ -156,3 +156,11 @@ uint8_t RocketGPS::GgaSize(){
 void RocketGPS::SetFlightState(uint8_t flight_state){
 	telemetry_data_.flight_state = flight_state;
 }
+
+int RocketGPS::GetDate(){
+  return telemetry_data_.date_stamp;
+}
+
+int RocketGPS::GetTime(){
+  return telemetry_data_.time_stamp;
+}

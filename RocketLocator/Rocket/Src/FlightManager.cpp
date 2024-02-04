@@ -7,7 +7,7 @@ FlightManager::FlightManager(){
 }
 
 FlightManager::FlightManager(RocketSettings *rocket_settings, SensorValues *sensor_values, FlightStats *flight_stats){
-	rocket_settings_ = rocket_settings;
+  rocket_settings_ = rocket_settings;
   sensor_values_ = sensor_values;
   flight_stats_ = flight_stats;
   SumSquares();
@@ -16,28 +16,38 @@ FlightManager::FlightManager(RocketSettings *rocket_settings, SensorValues *sens
 void FlightManager::Begin(){
   //APP_LOG(TS_OFF, VLEVEL_M, "\r\nFlightManager begin\r\n");
   MX_I2C2_Init();
-	accelerometer.MC3416Init();
-	float x_axis = 0.0, y_axis = 0.0, z_axis = 0.0;
-	accelerometer.GetAccelerometerValues(&x_axis, &y_axis, &z_axis);
-	float g_force = sqrt(x_axis * x_axis + y_axis * y_axis + z_axis * z_axis);
-	for (uint8_t i = 0; i < std::extent<decltype(accelerometer_history_)>::value; i++)
-		accelerometer_history_[i] = g_force;
+  if (!accelerometer_.MC3416Init())
+    HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+  else{
+    HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+    APP_LOG(TS_OFF, VLEVEL_M, "\r\nAccelerometer initialization failed\r\n");
+  }
+  HAL_Delay(1000); //Allow time for init status light to stay visible
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
+  float x_axis = 0.0, y_axis = 0.0, z_axis = 0.0;
+  accelerometer_.UpdateAccelerometerValues(&x_axis, &y_axis, &z_axis);
+  g_force_short_sample_ = sqrt(x_axis * x_axis + y_axis * y_axis + z_axis * z_axis);
+  for (uint8_t i = 0; i < std::extent<decltype(accelerometer_history_)>::value; i++)
+    accelerometer_history_[i] = g_force_short_sample_;
   Bmp280InitDefaultParams(&bmp280_.params);
-	bmp280_.addr = BMP280_I2C_ADDRESS_0;
-	bmp280_.i2c = &hi2c2;
-	if (Bmp280Init(&bmp280_, &bmp280_.params))
-	  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
-	else{
-	  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
-  	APP_LOG(TS_OFF, VLEVEL_M, "\r\nBMP280 initialization failed\r\n");
-	}
-  HAL_Delay(1000); //Allow time for BME to stabilize
+  bmp280_.addr = BMP280_I2C_ADDRESS_0;
+  bmp280_.i2c = &hi2c2;
+  if (Bmp280Init(&bmp280_, &bmp280_.params))
+    HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+  else{
+    HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+    APP_LOG(TS_OFF, VLEVEL_M, "\r\nBMP280 initialization failed\r\n");
+  }
+  HAL_Delay(1000); //Allow time for BME to stabilize, init status light to stay visible
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
 }
 
 void FlightManager::FlightService(){
 	GetAltimeterData();
 	UpdateFlightState();
-	if (flight_stats_->flight_state == flightStates::kWaitingLDA){
+	if (flight_stats_->flight_state == flightStates::kWaitingLaunch){
 		if (flight_stats_->sample_index < LAUNCH_LOOKBACK_SAMPLES - 1)
 			flight_stats_->sample_index++;
 		else
@@ -56,14 +66,14 @@ void FlightManager::FlightService(){
 }
 
 void FlightManager::GetAltimeterData(){
-	GetAGL();
-	flight_stats_->agl[flight_stats_->sample_index] = sensor_agl_; // get altitude above ground level
+  GetAGL();
+  flight_stats_->agl[flight_stats_->sample_index] = sensor_agl_; // get altitude above ground level
   UpdateVelocity();
-	agl_adjust_count_++;
-  if (flight_stats_->flight_state == flightStates::kWaitingLDA && agl_adjust_count_ >= 1200
-  		&& velocity_short_sample_ <= 1.0 && velocity_long_sample_ <= 1.0){
-  	agl_adjust_count_ = 0;
-  	flight_stats_->agl_adjust = sensor_altitude_;
+  agl_adjust_count_++;
+  if (flight_stats_->flight_state == flightStates::kWaitingLaunch && agl_adjust_count_ >= 60 * SAMPLES_PER_SECOND
+      && velocity_short_sample_ <= 1.0 && velocity_long_sample_ <= 1.0){
+    agl_adjust_count_ = 0;
+    flight_stats_->agl_adjust = sensor_altitude_;
   }
   mAGL = sensor_agl_;
   mVelocityShortSample = velocity_short_sample_;
@@ -71,74 +81,59 @@ void FlightManager::GetAltimeterData(){
 }
 
 void FlightManager::GetAccelerometerData(float *x_axis, float *y_axis, float *z_axis){
-	float g_force = 0.0;
-	uint8_t shake_count = 0;
-	accelerometer.GetAccelerometerValues(&x_axis_, &y_axis_, &z_axis_);
-	for (uint8_t i = 0; i < std::extent<decltype(accelerometer_history_)>::value - 1; i++){
-		accelerometer_history_[i] = accelerometer_history_[i + 1];
-		g_force += accelerometer_history_[i];
-	}
-	accelerometer_history_[std::extent<decltype(accelerometer_history_)>::value - 1] = sqrt(x_axis_ * x_axis_ + y_axis_ * y_axis_ + z_axis_ * z_axis_);
-	m_g_force = sqrt(x_axis_ * x_axis_ + y_axis_ * y_axis_ + z_axis_ * z_axis_);
-	g_force += accelerometer_history_[std::extent<decltype(accelerometer_history_)>::value - 1];
-	g_force /= std::extent<decltype(accelerometer_history_)>::value;
-	for (uint8_t i = 0; i < std::extent<decltype(accelerometer_history_)>::value; i++)
-		if (accelerometer_history_[i] > g_force + 0.25)
-			shake_count++;
-	if (shake_count > 7)
-		device_shake_ = true;
-	else
-		device_shake_ = false;
-	*x_axis = x_axis_;
-	*y_axis = y_axis_;
-	*z_axis = z_axis_;
-	mX = x_axis_;
-	mY = y_axis_;
-	mZ = z_axis_;
+  uint8_t shake_count = 0;
+  accelerometer_.UpdateAccelerometerValues(&x_axis_, &y_axis_, &z_axis_);
+  uint8_t i = 0;
+  g_force_short_sample_ = 0;
+  g_force_long_sample_ = 0;
+  for (; i < std::extent<decltype(accelerometer_history_)>::value - 1; i++){
+    accelerometer_history_[i] = accelerometer_history_[i + 1];
+    if (i >= std::extent<decltype(accelerometer_history_)>::value - 3)
+    g_force_short_sample_ += accelerometer_history_[i];
+    g_force_long_sample_ += accelerometer_history_[i];
+  }
+  accelerometer_history_[i] = sqrt(x_axis_ * x_axis_ + y_axis_ * y_axis_ + z_axis_ * z_axis_);
+  m_g_force = sqrt(x_axis_ * x_axis_ + y_axis_ * y_axis_ + z_axis_ * z_axis_);
+  g_force_short_sample_ += accelerometer_history_[i];
+  g_force_short_sample_ /= G_FORCE_SAMPLES_SHORT;
+  g_force_long_sample_ += accelerometer_history_[i];
+  g_force_long_sample_ /= G_FORCE_SAMPLES_LONG;
+  for (uint8_t j = 0; j <= i; j++)
+    if (accelerometer_history_[j] > g_force_short_sample_ + 0.25)
+      shake_count++;
+  if (shake_count > 7)
+    device_shake_ = true;
+  else
+    device_shake_ = false;
+  *x_axis = x_axis_;
+  *y_axis = y_axis_;
+  *z_axis = z_axis_;
+  mX = x_axis_;
+  mY = y_axis_;
+  mZ = z_axis_;
+}
+
+Accelerometer_t FlightManager::GetRawAccelerometerData(){
+  return accelerometer_.GetRawAccelerometerValues();
 }
 
 void FlightManager::UpdateFlightState(){ // Update flight state
-  if (flight_stats_->flight_state == flightStates::kWaitingLDA && flight_stats_->agl[flight_stats_->sample_index] > rocket_settings_->launch_detect_altitude // Detect launch
-    && velocity_long_sample_ > LAUNCH_VELOCITY){ // Minimum altitude, velocity
-    flight_stats_->flight_state = flightStates::kReachedLDA;
+  if (flight_stats_->flight_state == flightStates::kWaitingLaunch && flight_stats_->agl[flight_stats_->sample_index] > rocket_settings_->launch_detect_altitude // Detect launch
+    && velocity_short_sample_ > LAUNCH_VELOCITY && g_force_short_sample_ > LAUNCH_G_FORCE){ // Minimum altitude, velocity, acceleration
+    flight_stats_->flight_state = flightStates::kLaunched;
     flight_stats_->launch_detect_altitude = flight_stats_->agl[flight_stats_->sample_index];
     flight_stats_->launch_detect_time = flight_stats_->sample_index;
     //APP_LOG(TS_OFF, VLEVEL_M, "\r\nLaunch: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
   }
 
-  if (flight_stats_->flight_state >= flightStates::kReachedLDA && flight_stats_->flight_state < flightStates::kNoseover){
+  if (flight_stats_->flight_state >= flightStates::kLaunched && flight_stats_->flight_state < flightStates::kNoseover && g_force_short_sample_ < 0.5){
     updateMaxAltitude();
-    if (((flight_stats_->agl[flight_stats_->sample_index] - flight_stats_->agl[flight_stats_->sample_index - 1])
-    < (flight_stats_->agl[flight_stats_->sample_index - 1] - flight_stats_->agl[flight_stats_->sample_index - 2])) && flight_stats_->burnout_time == 0){ // Detect burnout
+    if (flight_stats_->burnout_time == 0){ // Detect burnout
+      flight_stats_->flight_state = flightStates::kBurnout;
       flight_stats_->burnout_altitude = flight_stats_->agl[flight_stats_->sample_index];
       flight_stats_->burnout_time = flight_stats_->sample_index;
     }
-  }
-
-  if (flight_stats_->flight_state == flightStates::kReachedLDA){ // Detect mach velocity
-    if (velocity_short_sample_ > MACH_LOCKOUT_VELOCITY){ // Set mach lockout
-      flight_stats_->mach_lockout_entered_altitude = flight_stats_->agl[flight_stats_->sample_index];
-      flight_stats_->mach_lockout_entered_time = flight_stats_->sample_index;
-      flight_stats_->flight_state = flightStates::kMachLockoutEntered;
-    }
-  }
-
-  if (flight_stats_->flight_state == flightStates::kMachLockoutEntered){ // Detect mach lockout expiration
-    if (velocity_long_sample_ > 0 && velocity_short_sample_ > 0 && velocity_short_sample_ < DEPLOYMENT_LOCKOUT_ALTITUDE_MAX_CHANGE){ // Release mach lockout
-      mach_release_count_++;
-      if (mach_release_count_ >= 40){
-        flight_stats_->mach_lockout_released_altitude = flight_stats_->agl[flight_stats_->sample_index];
-        flight_stats_->mach_lockout_released_time = flight_stats_->sample_index;
-        flight_stats_->flight_state = flightStates::kMachLockoutReleased;
-        //APP_LOG(TS_OFF, VLEVEL_M, "\r\nML Release: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
-      }
-    }
-    else
-      mach_release_count_ = 0;
-  }
-
-  if (flight_stats_->flight_state == flightStates::kReachedLDA || flight_stats_->flight_state == flightStates::kMachLockoutReleased){ // Nose over
-    float sum1 = 0.0, sum2 = 0.0;
+    float sum1 = 0.0, sum2 = 0.0; // Detect nose over
     for (int i = flight_stats_->sample_index - SAMPLES_PER_SECOND + 1; i < flight_stats_->sample_index - SAMPLES_PER_SECOND / 2 + 1; i++){
       sum1 += flight_stats_->agl[i];
       sum2 += flight_stats_->agl[i + SAMPLES_PER_SECOND / 2];
@@ -148,9 +143,6 @@ void FlightManager::UpdateFlightState(){ // Update flight state
       flight_stats_->nose_over_time = flight_stats_->sample_index;
       flight_stats_->flight_state = flightStates::kNoseover;
       //APP_LOG(TS_OFF, VLEVEL_M, "\r\nNoseover: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
-    }
-    else{
-      //APP_LOG(TS_OFF, VLEVEL_M, "\r\nApogee: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
     }
   }
 
@@ -252,7 +244,7 @@ void FlightManager::GetAGL(){
 	Bmp280ReadFloat(&bmp280_, &temperature_, &pressure_, &humidity_);
 	sensor_altitude_ =  (44330 * (1.0 - pow(pressure_ / 101325, 0.1903)));
   sensor_agl_ = sensor_altitude_ - flight_stats_->agl_adjust;
-  if (flight_stats_->flight_state > flightStates::kWaitingLDA)
+  if (flight_stats_->flight_state > flightStates::kWaitingLaunch)
     if (sensor_agl_ > flight_stats_->agl[flight_stats_->sample_index - 1] + MAX_ALTITUDE_SAMPLE_CHANGE || sensor_agl_ < flight_stats_->agl[flight_stats_->sample_index - 1] - MAX_ALTITUDE_SAMPLE_CHANGE)
       sensor_agl_ = flight_stats_->agl[flight_stats_->sample_index - 1]; // Compensate for spurious values
   //Serial.printf("%4.1f ", sensor_agl_);
@@ -305,11 +297,19 @@ void FlightManager::serviceBeeper(){
 }
 
 void FlightManager::AglToPacket(uint8_t *packet){
-	if (flight_stats_->sample_index >= SAMPLES_PER_SECOND){
-		memcpy(packet, &flight_stats_->agl[flight_stats_->sample_index - SAMPLES_PER_SECOND], sizeof(float) * SAMPLES_PER_SECOND);
-	}
+  if (flight_stats_->sample_index >= SAMPLES_PER_SECOND){
+    memcpy(packet, &flight_stats_->agl[flight_stats_->sample_index - SAMPLES_PER_SECOND], sizeof(float) * SAMPLES_PER_SECOND);
+  }
 }
 
 bool FlightManager::DeviceShake(){
-	return device_shake_;
+  return device_shake_;
+}
+
+float FlightManager::GetGRangeScale(){
+  return accelerometer_.GetGRangeScale();
+}
+
+float FlightManager::GetGForceShortSample(){
+  return g_force_short_sample_;
 }

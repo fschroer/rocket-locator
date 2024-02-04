@@ -1,20 +1,20 @@
 #ifndef ROCKETCONFIG
 #define ROCKETCONFIG
 
-#include <RocketDefs.hpp>
-#include "usart.h"
-#include <math.h>
-//#include <string>
+#include <RocketFile.hpp>
+#include <FlightManager.hpp>
+//#include "usart.h"
+//#include <math.h>
 
 #define UART_LINE_MAX_LENGTH 255
 #define USER_INPUT_MAX_LENGTH 15
 
 enum ConfigState
 {
-	kWaitingForConfigCommand = 0,
-	kConfigHome,
-	kEditDeployMode,
-	kEditLaunchDetectAltitude,
+  kWaitingForConfigCommand = 0,
+  kConfigHome,
+  kEditDeployMode,
+  kEditLaunchDetectAltitude,
   kEditDroguePrimaryDeployDelay,
   kEditDrogueBackupDeployDelay,
   kEditMainPrimaryDeployAltitude,
@@ -25,16 +25,16 @@ enum ConfigState
 
 class RocketConfig{
 public:
-	RocketConfig();
-	RocketConfig(DeviceState *device_state, RocketSettings *rocket_settings, FlightStats *flight_stats);
-	void ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char);
+  RocketConfig();
+  RocketConfig(DeviceState *device_state, RocketSettings *rocket_settings, FlightStats *flight_stats);
+  void ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char);
 private:
-	DeviceState *device_state_;
+  DeviceState *device_state_;
   RocketSettings *rocket_settings_;
   FlightStats *flight_stats_;
 
   ConfigState config_state_ = kWaitingForConfigCommand;
-	char* uart_line_ = new char[UART_LINE_MAX_LENGTH + 1];
+  char* uart_line_ = new char[UART_LINE_MAX_LENGTH + 1];
   char* user_input_ = new char[USER_INPUT_MAX_LENGTH + 1];
   const char* clear_screen_ = "\x1b[2J\0";
   const char* config_command_ = "config\0";
@@ -65,14 +65,14 @@ private:
   const char* deploy_signal_duration_edit_text_ = "Edit Deploy Signal Duration (s):\r\n\0";
   const char* lora_channel_edit_text_ = "Edit Lora Channel (0-63):\r\n\0";
 
-	DeployMode deploy_mode_;
-	int launch_detect_altitude_;
-	int drogue_primary_deploy_delay_;
-	int drogue_backup_deploy_delay_;
-	int main_primary_deploy_altitude_;
-	int main_backup_deploy_altitude_;
-	int deploy_signal_duration_;
-	int lora_channel_;
+  DeployMode deploy_mode_;
+  int launch_detect_altitude_;
+  int drogue_primary_deploy_delay_;
+  int drogue_backup_deploy_delay_;
+  int main_primary_deploy_altitude_;
+  int main_backup_deploy_altitude_;
+  int deploy_signal_duration_;
+  int lora_channel_;
 
   int MakeLine(char *target, const char *source1);
   int MakeLine(char *target, const char *source1, const char *source2);
@@ -81,8 +81,7 @@ private:
   bool StrCmp(char *string1, const char *string2, int length);
   void DisplayConfigSettings(UART_HandleTypeDef *huart2);
   const char* DeployModeString(DeployMode deploy_mode_value);
-  void AdjustConfigSetting(UART_HandleTypeDef *huart2, uint8_t uart_char
-  		, int *config_mode_setting, int max_setting_value, bool tenths);
+  void AdjustConfigSetting(UART_HandleTypeDef *huart2, uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths);
 };
 
 #endif /* ROCKETCONFIG */
