@@ -40,13 +40,11 @@ private:
   int flight_stats_delay_count_ = 0;
 
   uint8_t flight_stats_msg_[FLIGHT_STATS_MSG_HDR_SIZE + FLIGHT_STATS_MSG_SIZE] = {'F', 'S', 'M'};
-	int gps_count_ = 0;
+	int rocket_service_count_ = 0;
 
   DeviceState device_state_ = kRunning;
   uint8_t config_cycle_count_ = 0;
 
-  AltimeterArchiveMetadata altimeter_archive_metadata_;
-  AccelerometerArchiveMetadata accelerometer_archive_metadata_;
   bool archive_opened_ = false;
   bool altimeter_archive_closed_ = false;
   bool accelerometer_archive_closed_ = false;

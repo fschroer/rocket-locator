@@ -28,31 +28,22 @@ struct RocketSettings {
   int lora_channel = 0;
 };
 
-struct AltimeterArchiveMetadata {
-  int date;
-  int time;
-};
-
-struct AccelerometerArchiveMetadata {
-  int date;
-  int time;
-  float g_range_scale;
-};
-
 class RocketFile{
 public:
   HAL_StatusTypeDef SaveRocketSettings(RocketSettings *rocket_settings);
   HAL_StatusTypeDef ReadRocketSettings(RocketSettings *rocket_settings);
-  HAL_StatusTypeDef OpenAltimeterArchive(uint8_t archive_position);
-  HAL_StatusTypeDef WriteAltimeterMetadata(AltimeterArchiveMetadata *altimeter_archive_metadata);
+  HAL_StatusTypeDef OpenAltimeterArchiveWrite(uint8_t archive_position);
+  HAL_StatusTypeDef WriteFlightMetadata(FlightStats *flight_stats);
   HAL_StatusTypeDef WriteAltimeterSample(float agl);
   HAL_StatusTypeDef CloseAltimeterArchive();
-  HAL_StatusTypeDef ReadAltimeterData(uint16_t *agl);
-  HAL_StatusTypeDef OpenAccelerometerArchive(uint8_t archive_position);
-  HAL_StatusTypeDef WriteAccelerometerMetadata(AccelerometerArchiveMetadata *accelerometer_archive_metadata);
+  void ReadFlightMetadata(uint8_t archive_position, FlightStats *flight_stats);
+  bool ReadAltimeterData(uint8_t archive_position, int sample_index, int landing_sample_index, uint16_t *agl);
+  bool MaxAltimeterArchiveSampleIndex(uint32_t altimeter_data_archive_address, uint32_t altimeter_data_archive_base_address);
+  HAL_StatusTypeDef OpenAccelerometerArchiveWrite(uint8_t archive_position);
   HAL_StatusTypeDef WriteAccelerometerSample(Accelerometer_t *accelerometer);
   HAL_StatusTypeDef CloseAccelerometerArchive();
-  HAL_StatusTypeDef ReadAccelerometerData(Accelerometer_t **accelerometer);
+  bool ReadAccelerometerData(uint8_t archive_position, int sample_index, int landing_sample_index, Accelerometer_t *accelerometer);
+  bool MaxAccelerometerArchiveSampleIndex(uint32_t accelerometer_data_archive_base_address, uint32_t accelerometer_data_archive_address);
   void UpdateArchivePosition(uint8_t *archive_position);
 private:
   uint32_t settings_archive_address_ = ROCKET_SETTINGS_BASE_ADDRESS;
@@ -64,8 +55,7 @@ private:
   uint64_t accelerometer_data_buffer_[ACCELEROMETER_SAVE_BUFFER_SIZE] = {0};
   uint32_t accelerometer_data_archive_base_address_ = ACCELEROMETER_DATA_BASE_ADDRESS;
   uint32_t accelerometer_data_archive_address_ = ACCELEROMETER_DATA_BASE_ADDRESS;
-  const uint8_t altimeter_archive_metadata_size_ = ceil((float)sizeof(AltimeterArchiveMetadata) / sizeof(uint64_t)) * sizeof(uint64_t);
-  const uint8_t accelerometer_archive_metadata_size_ = ceil((float)sizeof(AccelerometerArchiveMetadata) / sizeof(uint64_t)) * sizeof(uint64_t);
+  const uint8_t archive_metadata_size_ = 11;
 
   HAL_StatusTypeDef ErasePages(uint32_t base_address, uint8_t pages);
 };

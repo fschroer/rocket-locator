@@ -12,17 +12,18 @@ RocketFactory::RocketFactory(){
 void RocketFactory::Begin(){
   Radio.SetChannel(902300000 + rocket_settings_.lora_channel * 200000);
   //uint8_t hello[] = {'R', 'o', 'c', 'k', 'e', 't', 'L', 'o', 'c', 'a', 't', 'o', 'r', ' ', 'v', '1', '.', '2', '\n'};
-  Radio.Send(lora_startup_message_, sizeof(lora_startup_message_));
+  Radio.Send((uint8_t*)lora_startup_message_, sizeof(lora_startup_message_));
   flight_manager_.Begin();
   rocket_gps_.Begin();
-  rocket_file_.OpenAltimeterArchive(rocket_settings_.archive_position);
-  rocket_file_.OpenAccelerometerArchive(rocket_settings_.archive_position);
+  rocket_file_.OpenAltimeterArchiveWrite(rocket_settings_.archive_position);
+  rocket_file_.OpenAccelerometerArchiveWrite(rocket_settings_.archive_position);
   SetDisplayDeployMode();
   HAL_Delay(1000);
   ResetDisplayDeployMode();
 }
 
 void RocketFactory::ProcessRocketEvents(){
+  rocket_service_count_++;
   static int accelerometer_index = 0;
   HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
   float x_axis = 0.0, y_axis = 0.0, z_axis = 0.0;
@@ -34,19 +35,19 @@ void RocketFactory::ProcessRocketEvents(){
     case DeviceState::kRunning:
       flight_manager_.FlightService();
       if (flight_stats_.flight_state == flightStates::kLaunched){
-        altimeter_archive_metadata_.date = rocket_gps_.GetDate();
-        altimeter_archive_metadata_.time = rocket_gps_.GetTime();
-        accelerometer_archive_metadata_.date = rocket_gps_.GetDate();
-        accelerometer_archive_metadata_.time = rocket_gps_.GetTime();
-        accelerometer_archive_metadata_.g_range_scale = flight_manager_.GetGRangeScale();
-        rocket_file_.WriteAltimeterMetadata(&altimeter_archive_metadata_);
-        rocket_file_.WriteAccelerometerMetadata(&accelerometer_archive_metadata_);
+        flight_stats_.launch_date = rocket_gps_.GetDate();
+        flight_stats_.launch_time = rocket_gps_.GetTime();
+        flight_stats_.g_range_scale = flight_manager_.GetGRangeScale();
         archive_opened_ = true;
       }
       if (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kLanded){
         rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.sample_index]);
         if (flight_stats_.flight_state < flightStates::kDroguePrimaryDeployed)
           rocket_file_.WriteAccelerometerSample(&accelerometer_raw_data);
+        else{
+          if (rocket_service_count_ == 10)
+            rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.sample_index]);
+        }
       }
       if (flight_stats_.flight_state == flightStates::kDroguePrimaryDeployed){
         if (!accelerometer_archive_closed_){
@@ -56,33 +57,23 @@ void RocketFactory::ProcessRocketEvents(){
       }
       if (flight_stats_.flight_state == flightStates::kLanded){
         if (!altimeter_archive_closed_){
+          rocket_file_.WriteFlightMetadata(&flight_stats_);
           rocket_file_.CloseAltimeterArchive();
           rocket_file_.UpdateArchivePosition(&rocket_settings_.archive_position);
           rocket_file_.SaveRocketSettings(&rocket_settings_);
           altimeter_archive_closed_ = true;
         }
       }
-      if (rocket_gps_.gga_write_ && rocket_gps_.rmc_write_){
-        rocket_gps_.gga_write_ = false;
-        rocket_gps_.rmc_write_ = false;
+      SetDeviceState();
+      if (rocket_service_count_ == 10)
+        SendTelemetryData();
+      if (rocket_service_count_ == 20){ // Lower frequency conserves battery.
         if (flight_stats_.flight_state == flightStates::kWaitingLaunch){ // Blink LoRa transmit LED for visual validation until liftoff
           HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
         }
-        if (flight_stats_.flight_state < flightStates::kLanded){ // Send telemetry data only before rocket lands
-          SendTelemetryData();
-        }
-        else{ // Alternate sending telemetry data and flight statistics after rocket lands. Lower frequency conserves battery.
-          if (gps_count_ == 0)
-            SendTelemetryData();
-          else if (gps_count_ == 5){
-            memcpy(flight_stats_msg_ + FLIGHT_STATS_MSG_HDR_SIZE, &flight_stats_, FLIGHT_STATS_MSG_SIZE);
-            Radio.Send(flight_stats_msg_, FLIGHT_STATS_MSG_HDR_SIZE + FLIGHT_STATS_MSG_SIZE);
-          }
-          if (++gps_count_ >= 10)
-            gps_count_ = 0;
-        }
+        rocket_service_count_ = 0;
+        SendTelemetryData();
       }
-      SetDeviceState();
       break;
     case DeviceState::kConfig:
       //ConfigDevice(x_axis, y_axis, z_axis);
@@ -175,18 +166,11 @@ void RocketFactory::SendTelemetryData(){
   rocket_gps_.ProcessRmcSentence();
   rocket_gps_.SetFlightState(flight_stats_.flight_state);
   uint8_t ggaSize = rocket_gps_.GgaSize();
-  //if (flightStats.flightState > flightStates::WAITING_LDA && flightStats.flightState < flightStates::DROGUE_DEPLOYED){
-    uint8_t telemetryPacket[ggaSize + sizeof(float) * SAMPLES_PER_SECOND] = {0};
-    rocket_gps_.GgaToPacket(telemetryPacket);
-    flight_manager_.AglToPacket(telemetryPacket + ggaSize);
-    Radio.Send(telemetryPacket, sizeof(telemetryPacket));/*
-  }
-  else{
-    uint8_t telemetryPacket[ggaSize] = {0};
-    rocketGPS.ggaToPacket(telemetryPacket);
-    Radio.Send(telemetryPacket, sizeof(telemetryPacket));
-  }*/
-  //HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin); /* LED_BLUE */
+  uint8_t telemetryPacket[ggaSize + sizeof(float) + (SAMPLES_PER_SECOND - 1) *
+                          (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kDroguePrimaryDeployed)] = {0};
+  rocket_gps_.GgaToPacket(telemetryPacket);
+  flight_manager_.AglToPacket(telemetryPacket + ggaSize);
+  Radio.Send(telemetryPacket, sizeof(telemetryPacket));
 }
 
 void RocketFactory::ProcessUART1Char(uint8_t uart_char){

@@ -24,57 +24,6 @@
 #define MAX_ALTITUDE_SAMPLE_CHANGE 4.5 * 340.29 / SAMPLES_PER_SECOND // Maximum altitude change per sample: Mach 4.5 = fastest amateur rocket velocity
 #define DESCENT_RATE_THRESHOLD 0.25 // meters per second
 
-enum flightStates
-{
-  kWaitingLaunch = 0,
-  kLaunched = 1,
-  kMachLockoutEntered = 2,
-  kMachLockoutReleased = 3,
-  kBurnout = 4,
-  kNoseover = 5,
-  kDroguePrimaryDeployed = 6,
-  kDroguePrimarySignalOff = 7,
-  kDrogueBackupDeployed = 8,
-  kDrogueBackupSignalOff = 9,
-  kMainPrimaryDeployed = 10,
-  kMainPrimarySignalOff = 11,
-  kMainBackupDeployed = 12,
-  kMainBackupSignalOff = 13,
-  kLanded = 14
-};
-
-struct FlightStats {
-  //bool armed; //deployment system enabled state
-  //bool prevArmed;
-  uint8_t flight_state = flightStates::kWaitingLaunch;
-  //int prevFlightState = flightStates::WAITING_LDA;
-  float agl_adjust = 0.0;
-  float max_altitude;
-  int max_altitude_time;
-  float launch_detect_altitude;
-  int launch_detect_time;
-  float mach_lockout_entered_altitude;
-  int mach_lockout_entered_time;
-  float burnout_altitude;
-  int burnout_time;
-  float mach_lockout_released_altitude;
-  int mach_lockout_released_time;
-  float nose_over_altitude;
-  int nose_over_time;
-  float drogue_primary_deploy_altitude;
-  int drogue_primary_deploy_time;
-  float drogue_backup_deploy_altitude;
-  int drogue_backup_deploy_time;
-  float main_primary_deploy_altitude;
-  int main_primary_deploy_time;
-  float main_backup_deploy_altitude;
-  int main_backup_deploy_time;
-  float land_altitude;
-  int land_time;
-  int sample_index;
-  float agl[AGL_ARRAY_SIZE] = {0.0};
-};
-
 class FlightManager{
 public:
   FlightManager();

@@ -35,20 +35,21 @@ HAL_StatusTypeDef RocketFile::ReadRocketSettings(RocketSettings *rocket_settings
   return HAL_OK;
 }
 
-HAL_StatusTypeDef RocketFile::OpenAltimeterArchive(uint8_t archive_position){
+HAL_StatusTypeDef RocketFile::OpenAltimeterArchiveWrite(uint8_t archive_position){
   altimeter_data_archive_base_address_ = ALTIMETER_DATA_BASE_ADDRESS + archive_position * ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
   altimeter_data_archive_address_ = altimeter_data_archive_base_address_;
   altimeter_data_buffer_index_ = 0;
   return ErasePages(altimeter_data_archive_base_address_, ALTIMETER_ARCHIVE_PAGES);
 }
 
-HAL_StatusTypeDef RocketFile::WriteAltimeterMetadata(AltimeterArchiveMetadata *altimeter_archive_metadata){
+HAL_StatusTypeDef RocketFile::WriteFlightMetadata(FlightStats *flight_stats){
+  HAL_StatusTypeDef status = HAL_OK;
   if ((status = HAL_FLASH_Unlock()) != HAL_OK)
     return status;
-  for (int i = 0; i < altimeter_archive_metadata_size_; i++){
+  for (int i = 0; i < archive_metadata_size_; i++){
     if ((status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD
-        , altimeter_data_archive_base_address_ + ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE - altimeter_archive_metadata_size_
-        + i * sizeof(uint64_t), *((uint64_t *)altimeter_archive_metadata + i))) != HAL_OK)
+        , altimeter_data_archive_base_address_ + ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE - archive_metadata_size_
+        + i * sizeof(uint64_t), *((uint64_t *)flight_stats + i))) != HAL_OK)
       return status;
   }
   return HAL_FLASH_Lock();
@@ -56,8 +57,7 @@ HAL_StatusTypeDef RocketFile::WriteAltimeterMetadata(AltimeterArchiveMetadata *a
 
 HAL_StatusTypeDef RocketFile::WriteAltimeterSample(float agl){
   uint16_t int16_agl = int(agl);
-  if (altimeter_data_archive_address_ < altimeter_data_archive_base_address_ + ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE
-      - sizeof(altimeter_data_buffer_) - altimeter_archive_metadata_size_){
+  if (!MaxAltimeterArchiveSampleIndex(altimeter_data_archive_base_address_, altimeter_data_archive_address_)){
     std::memcpy((uint8_t *)altimeter_data_buffer_ + altimeter_data_buffer_index_, &int16_agl, sizeof(int16_agl));
     altimeter_data_buffer_index_ += sizeof(int16_agl);
     if (altimeter_data_buffer_index_ == sizeof(altimeter_data_buffer_)){
@@ -100,28 +100,38 @@ HAL_StatusTypeDef RocketFile::CloseAltimeterArchive(){
   return HAL_FLASH_Lock();
 }
 
-HAL_StatusTypeDef RocketFile::OpenAccelerometerArchive(uint8_t archive_position){
+void RocketFile::ReadFlightMetadata(uint8_t archive_position, FlightStats *flight_stats){
+  altimeter_data_archive_base_address_ = ALTIMETER_DATA_BASE_ADDRESS + archive_position * ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
+  uint32_t address = altimeter_data_archive_base_address_ + ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE - archive_metadata_size_;
+  for (int i = 0; i < archive_metadata_size_ * sizeof(uint64_t); i++)
+    *((uint8_t *)flight_stats + i) = *((uint8_t *)address + i);
+}
+
+bool RocketFile::ReadAltimeterData(uint8_t archive_position, int sample_index, int landing_sample_index, uint16_t *agl){
+  altimeter_data_archive_base_address_ = ALTIMETER_DATA_BASE_ADDRESS + archive_position * ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
+  uint32_t address = altimeter_data_archive_base_address_ + sample_index * sizeof(uint16_t);
+
+  if (sample_index <= landing_sample_index && !MaxAltimeterArchiveSampleIndex(altimeter_data_archive_base_address_, address)){
+    *agl = *(uint16_t *)address;
+    return true;
+  }
+  return false;
+}
+
+bool RocketFile::MaxAltimeterArchiveSampleIndex(uint32_t altimeter_data_archive_base_address, uint32_t altimeter_data_archive_address){
+  return altimeter_data_archive_address >= altimeter_data_archive_base_address + ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE
+      - sizeof(altimeter_data_buffer_) - archive_metadata_size_ * sizeof(uint64_t);
+}
+
+HAL_StatusTypeDef RocketFile::OpenAccelerometerArchiveWrite(uint8_t archive_position){
   accelerometer_data_archive_base_address_ = ACCELEROMETER_DATA_BASE_ADDRESS + archive_position * ACCELEROMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
   accelerometer_data_archive_address_ = accelerometer_data_archive_base_address_;
   accelerometer_data_buffer_index_ = 0;
   return ErasePages(accelerometer_data_archive_base_address_, ACCELEROMETER_ARCHIVE_PAGES);
 }
 
-HAL_StatusTypeDef RocketFile::WriteAccelerometerMetadata(AccelerometerArchiveMetadata *accelerometer_archive_metadata){
-  if ((status = HAL_FLASH_Unlock()) != HAL_OK)
-    return status;
-  for (int i = 0; i < accelerometer_archive_metadata_size_; i++){
-    if ((status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD
-        , accelerometer_data_archive_base_address_ + ACCELEROMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE - accelerometer_archive_metadata_size_
-        + i * sizeof(uint64_t), *((uint64_t *)accelerometer_archive_metadata + i))) != HAL_OK)
-      return status;
-  }
-  return HAL_FLASH_Lock();
-}
-
 HAL_StatusTypeDef RocketFile::WriteAccelerometerSample(Accelerometer_t *accelerometer){
-  if (accelerometer_data_archive_address_ < accelerometer_data_archive_base_address_ + ACCELEROMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE
-      - sizeof(accelerometer_data_buffer_) - accelerometer_archive_metadata_size_){
+  if (!MaxAccelerometerArchiveSampleIndex(accelerometer_data_archive_base_address_, accelerometer_data_archive_address_)){
     std::memcpy((uint8_t *)accelerometer_data_buffer_ + accelerometer_data_buffer_index_, accelerometer, sizeof(*accelerometer));
     accelerometer_data_buffer_index_ += sizeof(*accelerometer);
     if (accelerometer_data_buffer_index_ == sizeof(accelerometer_data_buffer_)){
@@ -162,6 +172,22 @@ HAL_StatusTypeDef RocketFile::CloseAccelerometerArchive(){
       return status;
   }
   return HAL_FLASH_Lock();
+}
+
+bool RocketFile::ReadAccelerometerData(uint8_t archive_position, int sample_index, int landing_sample_index, Accelerometer_t *accelerometer){
+  accelerometer_data_archive_base_address_ = ALTIMETER_DATA_BASE_ADDRESS + archive_position * ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
+  uint32_t address = altimeter_data_archive_base_address_ + sample_index * sizeof(uint16_t);
+
+  if (sample_index <= landing_sample_index && !MaxAccelerometerArchiveSampleIndex(altimeter_data_archive_base_address_, address)){
+    *accelerometer = *(Accelerometer_t *)address;
+    return true;
+  }
+  return false;
+}
+
+bool RocketFile::MaxAccelerometerArchiveSampleIndex(uint32_t accelerometer_data_archive_base_address, uint32_t accelerometer_data_archive_address){
+  return accelerometer_data_archive_address >= accelerometer_data_archive_base_address + ACCELEROMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE
+      - sizeof(accelerometer_data_buffer_) - archive_metadata_size_ * sizeof(uint64_t);
 }
 
 HAL_StatusTypeDef RocketFile::ErasePages(uint32_t base_address, uint8_t pages){
