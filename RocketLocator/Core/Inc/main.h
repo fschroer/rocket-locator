@@ -32,6 +32,7 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stm32wlxx_ll_usart.h"
+#include "stm32_timer.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

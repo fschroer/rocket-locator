@@ -1,12 +1,7 @@
 #ifndef ACCELEROMETER
 #define ACCELEROMETER
 
-//#include "stm32wlxx_hal.h"
-//#include <stdint.h>
-//#include <stdbool.h>
 #include "i2c.h"
-//#include "main.h"
-//#include "RocketDefs.hpp"
 
 #define MC3416_ADDR_0			0x4C //VPP connected to GND at power up
 #define MC3416_ADDR_1			0x6C //VPP connected to VDD at power up
@@ -45,8 +40,7 @@ typedef struct{
 class Accelerometer{
 public:
   EX_Error MC3416Init();
-  EX_Error UpdateAccelerometerValues(float *x, float *y, float *z);
-  Accelerometer_t GetRawAccelerometerValues();
+  EX_Error UpdateAccelerometerValues(Accelerometer_t *accelerometer);
   float GetGRangeScale();
 private:
   typedef enum{

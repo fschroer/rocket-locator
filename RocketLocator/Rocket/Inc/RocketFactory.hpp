@@ -7,7 +7,7 @@
 #include <RocketFile.hpp>
 #include <RocketConfig.hpp>
 //#include <Speaker.hpp>
-#include "stm32wlxx_hal_rtc.h"
+//#include "stm32wlxx_hal_rtc.h"
 #include "radio.h"
 
 #define BATT_LEVEL_PIN 35
@@ -49,7 +49,6 @@ private:
   bool altimeter_archive_closed_ = false;
   bool accelerometer_archive_closed_ = false;
 
-  void SetDeviceState();
   void ConfigDevice(float x_axis, float y_axis, float z_axis);
   void SendTelemetryData();
   void DisplayDroguePrimaryDrogueBackup();

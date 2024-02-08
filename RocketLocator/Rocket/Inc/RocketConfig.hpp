@@ -2,9 +2,12 @@
 #define ROCKETCONFIG
 
 #include <RocketFile.hpp>
-#include <FlightManager.hpp>
-//#include "usart.h"
-//#include <math.h>
+#include <RocketDefs.hpp>
+//#include <ctime>
+//#include <charconv>
+#include "string.h"
+#include "time.h"
+
 
 #define UART_LINE_MAX_LENGTH 255
 #define USER_INPUT_MAX_LENGTH 15
@@ -27,12 +30,15 @@ enum UserInteractionState
 class RocketConfig{
 public:
   RocketConfig();
-  RocketConfig(DeviceState *device_state, RocketSettings *rocket_settings, FlightStats *flight_stats);
+  RocketConfig(DeviceState *device_state, RocketSettings *rocket_settings);
   void ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char);
 private:
+  RocketFile rocket_file_;
+
   DeviceState *device_state_;
   RocketSettings *rocket_settings_;
-  FlightStats *flight_stats_;
+
+  FlightStats flight_stats_;
 
   UserInteractionState user_interaction_state_ = kWaitingForCommand;
   char* uart_line_ = new char[UART_LINE_MAX_LENGTH + 1];
@@ -70,6 +76,7 @@ private:
   const char* data_menu_text_ = "\r\n\r\n\r\nRocket Locator Data Menu\r\n\0";
   const char* config_exit_text_ = "Exiting Data Menu\r\n\r\n\0";
   const char* data_guidance_text_ = "Type 0-9 to retrieve CSV output of corresponding flight";
+  const char* export_header_text_ = "Time, AGL, AccelX, AccelY, AccelZ\0";
 
   DeployMode deploy_mode_;
   int launch_detect_altitude_;
@@ -90,6 +97,8 @@ private:
   void AdjustConfigSetting(UART_HandleTypeDef *huart2, uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths);
   void DisplayDataMenu(UART_HandleTypeDef *huart2);
   void ExportData(UART_HandleTypeDef *huart2, uint8_t archive_position);
+  void MakeDateTime(char *target, int date, int time, int sample_index);
+  void FloatToCharArray(char *target, float source);
 };
 
 #endif /* ROCKETCONFIG */

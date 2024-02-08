@@ -4,10 +4,9 @@ RocketConfig::RocketConfig(){
   //HAL_UART_Transmit(huart2, (uint8_t*)&crlf_, 2, UART_TIMEOUT);
 }
 
-RocketConfig::RocketConfig(DeviceState *device_state, RocketSettings *rocket_settings, FlightStats *flight_stats){
+RocketConfig::RocketConfig(DeviceState *device_state, RocketSettings *rocket_settings){
   device_state_ = device_state;
   rocket_settings_ = rocket_settings;
-  flight_stats_ = flight_stats;
 }
 
 void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
@@ -320,5 +319,59 @@ void RocketConfig::AdjustConfigSetting(UART_HandleTypeDef *huart2, uint8_t uart_
 }
 
 void RocketConfig::ExportData(UART_HandleTypeDef *huart2, uint8_t archive_position){
+  int uart_line_len = 0;
+  uart_line_len = MakeLine(uart_line_, clear_screen_, export_header_text_, crlf_);
+  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  rocket_file_.ReadFlightMetadata(archive_position, &flight_stats_);
+  int sample_index = 0;
+  char datetime[22];
+  uint16_t agl = 0;
+  char s_agl[6] = {0};
+  Accelerometer_t accelerometer;
+  char x_accel[6] = {0};
+  char y_accel[6] = {0};
+  char z_accel[6] = {0};
+  while (rocket_file_.ReadAltimeterData(archive_position, sample_index, flight_stats_.landing_sample_count, &agl)){
+    MakeDateTime(datetime, flight_stats_.launch_date, flight_stats_.launch_time, sample_index);
+    rocket_file_.ReadAccelerometerData(archive_position, sample_index, flight_stats_.drogue_primary_deploy_sample_count, &accelerometer);
+    char export_line[255];
+    itoa(agl, s_agl, 10);
+    FloatToCharArray(x_accel, accelerometer.x * flight_stats_.g_range_scale);
+    FloatToCharArray(y_accel, accelerometer.y * flight_stats_.g_range_scale);
+    FloatToCharArray(z_accel, accelerometer.z * flight_stats_.g_range_scale);
+    MakeLine(export_line, datetime, s_agl, ",");
+    MakeLine(export_line, export_line, x_accel, ",");
+    MakeLine(export_line, export_line, y_accel, ",");
+    uart_line_len = MakeLine(export_line, export_line, z_accel, crlf_);
+    HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  }
+}
 
+void RocketConfig::MakeDateTime(char *target, int date, int time, int sample_count){
+  tm sample_time;
+  sample_time.tm_mday = date / 10000;
+  sample_time.tm_mon = (date - date / 10000) / 100;
+  sample_time.tm_year = date % 100;
+  sample_time.tm_hour = time / 10000;
+  sample_time.tm_min = (time - time / 10000) / 100;
+  sample_time.tm_sec = time % 100 + sample_count < flight_stats_.drogue_primary_deploy_sample_count ? sample_count / SAMPLES_PER_SECOND
+       : flight_stats_.drogue_primary_deploy_sample_count / SAMPLES_PER_SECOND + flight_stats_.drogue_primary_deploy_sample_count - sample_count;
+  mktime(&sample_time);
+  strftime(target, sizeof(target), "%FT%TZ", &sample_time);
+  if (sample_count < flight_stats_.drogue_primary_deploy_sample_count){
+    target[20] = int((float)(sample_count % SAMPLES_PER_SECOND) / SAMPLES_PER_SECOND * 10) + '0';
+    target[21] = int((float)(sample_count % SAMPLES_PER_SECOND) / SAMPLES_PER_SECOND * 100) % 10 + '0';
+  }
+  else{
+    target[20] = '0';
+    target[21] = '0';
+  }
+}
+
+void RocketConfig::FloatToCharArray(char *target, float source){
+  itoa(int(source), target, 10);
+  uint8_t i = 0;
+  for (i = 0; target[i] != 0 && i < sizeof(target); i++);
+  target[i] = '.';
+  itoa(int((source - int(source)) * 1000), &target[i + 1], 10);
 }

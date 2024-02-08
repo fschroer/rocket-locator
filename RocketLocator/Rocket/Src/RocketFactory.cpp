@@ -6,7 +6,7 @@ RocketFactory::RocketFactory(){
   if (rocket_settings_.lora_channel > MAX_LORA_CHANNEL)
   	rocket_settings_.lora_channel = 0;
   flight_manager_ = FlightManager(&rocket_settings_, &sensor_values_, &flight_stats_);
-  rocket_config_ = RocketConfig(&device_state_, &rocket_settings_, &flight_stats_);
+  rocket_config_ = RocketConfig(&device_state_, &rocket_settings_);
 }
 
 void RocketFactory::Begin(){
@@ -24,29 +24,27 @@ void RocketFactory::Begin(){
 
 void RocketFactory::ProcessRocketEvents(){
   rocket_service_count_++;
-  static int accelerometer_index = 0;
   HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
-  float x_axis = 0.0, y_axis = 0.0, z_axis = 0.0;
-  flight_manager_.GetAccelerometerData(&x_axis, &y_axis, &z_axis);
-  Accelerometer_t accelerometer_raw_data = flight_manager_.GetRawAccelerometerData();
-  //rocket_file_.WriteAccelerometerSample(&accelerometer_raw_data);
-  accelerometer_index++;
   switch (device_state_){
     case DeviceState::kRunning:
       flight_manager_.FlightService();
-      if (flight_stats_.flight_state == flightStates::kLaunched){
+      if (flight_stats_.flight_state == flightStates::kLaunched && !archive_opened_){
         flight_stats_.launch_date = rocket_gps_.GetDate();
         flight_stats_.launch_time = rocket_gps_.GetTime();
-        flight_stats_.g_range_scale = flight_manager_.GetGRangeScale();
+        for (int i = flight_stats_.flight_data_array_index - LAUNCH_LOOKBACK_SAMPLES + 1; i < flight_stats_.flight_data_array_index; i++){
+          rocket_file_.WriteAltimeterSample(flight_stats_.agl[i]);
+          rocket_file_.WriteAccelerometerSample(&flight_stats_.accelerometer[i]);
+        }
         archive_opened_ = true;
       }
       if (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kLanded){
-        rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.sample_index]);
-        if (flight_stats_.flight_state < flightStates::kDroguePrimaryDeployed)
-          rocket_file_.WriteAccelerometerSample(&accelerometer_raw_data);
+        if (flight_stats_.flight_state < flightStates::kDroguePrimaryDeployed){
+          rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.flight_data_array_index]);
+          rocket_file_.WriteAccelerometerSample(&flight_stats_.accelerometer[flight_stats_.flight_data_array_index]);
+        }
         else{
           if (rocket_service_count_ == 10)
-            rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.sample_index]);
+            rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.flight_data_array_index]);
         }
       }
       if (flight_stats_.flight_state == flightStates::kDroguePrimaryDeployed){
@@ -64,7 +62,6 @@ void RocketFactory::ProcessRocketEvents(){
           altimeter_archive_closed_ = true;
         }
       }
-      SetDeviceState();
       if (rocket_service_count_ == 10)
         SendTelemetryData();
       if (rocket_service_count_ == 20){ // Lower frequency conserves battery.
@@ -76,7 +73,6 @@ void RocketFactory::ProcessRocketEvents(){
       }
       break;
     case DeviceState::kConfig:
-      //ConfigDevice(x_axis, y_axis, z_axis);
       break;
     case DeviceState::kConfigSavePending:
       SetDisplayDeployMode();
@@ -88,88 +84,13 @@ void RocketFactory::ProcessRocketEvents(){
   }
 }
 
-void RocketFactory::SetDeviceState(){
-  if (flight_stats_.flight_state == flightStates::kWaitingLaunch){
-    if (flight_manager_.DeviceShake()){
-        //device_config_ = DeviceState::kConfig;
-    }
-  }
-}
-
-void RocketFactory::ConfigDevice(float x_axis, float y_axis, float z_axis){
-  if (config_cycle_count_ < 60){
-    if (config_cycle_count_ / 5 % 4 == 0){
-      HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
-      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
-    }
-    else if (config_cycle_count_ / 5 % 4 == 1){
-      HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
-      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
-    }
-    else if (config_cycle_count_ / 5 % 4 == 2){
-      HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
-    }
-    else if (config_cycle_count_ / 5 % 4 == 3){
-      HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
-    }
-  }
-  else if (config_cycle_count_ <= 120){
-    if (config_cycle_count_ / 10 % 2 == 0){
-      if (x_axis < -0.9)
-        DisplayDroguePrimaryDrogueBackup();
-      else if (x_axis > 0.9)
-        DisplayMainPrimaryMainBackup();
-      else if (y_axis > 0.9)
-        DisplayDrogueBackupMainBackup();
-      else // default
-        DisplayDroguePrimaryMainPrimary();
-    }
-    else if (config_cycle_count_ / 10 % 2 == 1){
-      ResetDisplayDeployMode();
-    }
-  }
-  if (config_cycle_count_ == 120){
-    if (x_axis < -0.9){
-      rocket_settings_.deploy_mode = DeployMode::kDroguePrimaryDrogueBackup;
-      mDeployMode = DeployMode::kDroguePrimaryDrogueBackup;
-    }
-    else if (x_axis > 0.9){
-      rocket_settings_.deploy_mode = DeployMode::kMainPrimaryMainBackup;
-      mDeployMode = DeployMode::kMainPrimaryMainBackup;
-    }
-    else if (y_axis > 0.9){
-      rocket_settings_.deploy_mode = DeployMode::kDrogueBackupMainBackup;
-      mDeployMode = DeployMode::kDrogueBackupMainBackup;
-    }
-    else{ // default
-      rocket_settings_.deploy_mode = DeployMode::kDroguePrimaryMainPrimary;
-      mDeployMode = DeployMode::kDroguePrimaryMainPrimary;
-    }
-    rocket_file_.SaveRocketSettings(&rocket_settings_);
-  }
-  if (config_cycle_count_ < 120)
-    config_cycle_count_++;
-  else{
-    config_cycle_count_ = 0;
-    device_state_ = DeviceState::kRunning;
-  }
-}
-
 void RocketFactory::SendTelemetryData(){
-  rocket_gps_.ProcessGgaSentence();
-  rocket_gps_.ProcessRmcSentence();
   rocket_gps_.SetFlightState(flight_stats_.flight_state);
-  uint8_t ggaSize = rocket_gps_.GgaSize();
-  uint8_t telemetryPacket[ggaSize + sizeof(float) + (SAMPLES_PER_SECOND - 1) *
+  uint8_t telemetry_data_size = rocket_gps_.TelemetryDataSize();
+  uint8_t telemetryPacket[telemetry_data_size + sizeof(float) + (SAMPLES_PER_SECOND - 1) *
                           (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kDroguePrimaryDeployed)] = {0};
   rocket_gps_.GgaToPacket(telemetryPacket);
-  flight_manager_.AglToPacket(telemetryPacket + ggaSize);
+  flight_manager_.AglToPacket(telemetryPacket + telemetry_data_size);
   Radio.Send(telemetryPacket, sizeof(telemetryPacket));
 }
 

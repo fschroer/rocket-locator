@@ -1,5 +1,5 @@
 //#include "sys_app.h"
-#include "../../Accelerometer/Inc/Accelerometer.hpp"
+#include "Accelerometer.hpp"
 
 void Accelerometer::MC3416InitDefaultParams(){
 	mc3416_.params.MotionCtrl = 0x00;
@@ -59,7 +59,7 @@ EX_Error Accelerometer::MC3416Init(){
 	return MC_OK;
 }
 
-EX_Error Accelerometer::UpdateAccelerometerValues(float *x, float *y, float *z){
+EX_Error Accelerometer::UpdateAccelerometerValues(Accelerometer_t *accelerometer){
 //	uint8_t devStatus;
 //	uint16_t shk;
 //	uint16_t dur;
@@ -72,17 +72,11 @@ EX_Error Accelerometer::UpdateAccelerometerValues(float *x, float *y, float *z){
 //		return MC_Rd_Error;
 //	if (HAL_I2C_Mem_Read(mc3416.i2c, mc3416.addr << 1, INTR_STAT_2, 1, &accelInt, 1, 5000) != HAL_OK)
 //		return MC_Rd_Error;
-	if (HAL_I2C_Mem_Read(mc3416_.i2c, mc3416_.addr << 1, XOUT_EX_L, 1, (uint8_t*)&accelerometer_, 6, 5000) != HAL_OK)
+	if (HAL_I2C_Mem_Read(mc3416_.i2c, mc3416_.addr << 1, XOUT_EX_L, 1, (uint8_t*)accelerometer, 6, 5000) != HAL_OK)
 		return MC_Rd_Error;
-	*x = accelerometer_.x * g_range_scale_;
-	*y = accelerometer_.y * g_range_scale_;
-	*z = accelerometer_.z * g_range_scale_;
 	return MC_OK;
 }
 
-Accelerometer_t Accelerometer::GetRawAccelerometerValues(){
-  return accelerometer_;
-}
 
 float Accelerometer::GetGRangeScale(){
   return g_range_scale_;
