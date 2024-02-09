@@ -1,7 +1,4 @@
 #include "FlightManager.hpp"
-#include "main.h"
-#include "math.h"
-#include "sys_app.h"
 
 FlightManager::FlightManager(){
 }
@@ -50,7 +47,7 @@ void FlightManager::Begin(){
     flight_stats_->flight_data_array_index++;
     test_data_sample_count_++;
   }
-  flight_stats_->sample_count = LAUNCH_LOOKBACK_SAMPLES + 1;
+  flight_stats_->sample_count = LAUNCH_LOOKBACK_SAMPLES;
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
 }
@@ -59,6 +56,9 @@ void FlightManager::FlightService(){
   GetAltimeterData();
   GetAccelerometerData();
   UpdateFlightState();
+}
+
+void FlightManager::IncrementFlightDataQueue(){
   if (flight_stats_->flight_state < flightStates::kLanded){
     test_data_sample_count_++;
     if (flight_stats_->flight_state > flightStates::kWaitingLaunch)
@@ -171,7 +171,7 @@ void FlightManager::UpdateFlightState(){ // Update flight state
 
   if (flight_stats_->flight_state >= flightStates::kNoseover){
     if (flight_stats_->flight_state < flightStates::kDroguePrimaryDeployed
-        && flight_stats_->flight_data_array_index >= flight_stats_->nose_over_sample_count + SAMPLES_PER_SECOND * rocket_settings_->drogue_primary_deploy_delay / 10){ // Deploy drogue primary
+        && flight_stats_->sample_count >= flight_stats_->nose_over_sample_count + SAMPLES_PER_SECOND * rocket_settings_->drogue_primary_deploy_delay / 10){ // Deploy drogue primary
       if (rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryDrogueBackup || rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryMainPrimary)
         HAL_GPIO_WritePin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin, GPIO_PIN_SET);
       flight_stats_->drogue_primary_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
@@ -180,7 +180,7 @@ void FlightManager::UpdateFlightState(){ // Update flight state
     }
 
     if (flight_stats_->flight_state < flightStates::kDrogueBackupDeployed
-        && flight_stats_->flight_data_array_index >= flight_stats_->nose_over_sample_count + SAMPLES_PER_SECOND * rocket_settings_->drogue_backup_deploy_delay / 10){ // Deploy drogue backup
+        && flight_stats_->sample_count >= flight_stats_->nose_over_sample_count + SAMPLES_PER_SECOND * rocket_settings_->drogue_backup_deploy_delay / 10){ // Deploy drogue backup
       if (rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryDrogueBackup)
         HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_SET);
       else if (rocket_settings_->deploy_mode == DeployMode::kDrogueBackupMainBackup)
@@ -213,19 +213,19 @@ void FlightManager::UpdateFlightState(){ // Update flight state
 
   if (HAL_GPIO_ReadPin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin) == GPIO_PIN_SET){
     if ((rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryDrogueBackup || rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryMainPrimary)
-        && flight_stats_->flight_data_array_index >= flight_stats_->drogue_primary_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop drogue primary deployment signal
+        && flight_stats_->sample_count >= flight_stats_->drogue_primary_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop drogue primary deployment signal
       HAL_GPIO_WritePin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin, GPIO_PIN_RESET);
       if (flight_stats_->flight_state == flightStates::kDroguePrimaryDeployed)
         flight_stats_->flight_state = flightStates::kDroguePrimarySignalOff;
     }
     if (rocket_settings_->deploy_mode == DeployMode::kDrogueBackupMainBackup
-        && flight_stats_->flight_data_array_index >= flight_stats_->drogue_backup_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop drogue backup deployment signal
+        && flight_stats_->sample_count >= flight_stats_->drogue_backup_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop drogue backup deployment signal
       HAL_GPIO_WritePin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin, GPIO_PIN_RESET);
       if (flight_stats_->flight_state == flightStates::kDrogueBackupDeployed)
         flight_stats_->flight_state = flightStates::kDrogueBackupSignalOff;
     }
     if (rocket_settings_->deploy_mode == DeployMode::kMainPrimaryMainBackup
-        && flight_stats_->flight_data_array_index >= flight_stats_->main_primary_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop main primary deployment signal
+        && flight_stats_->sample_count >= flight_stats_->main_primary_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop main primary deployment signal
       HAL_GPIO_WritePin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin, GPIO_PIN_RESET);
       if (flight_stats_->flight_state == flightStates::kMainPrimaryDeployed)
         flight_stats_->flight_state = flightStates::kMainPrimarySignalOff;
@@ -234,19 +234,19 @@ void FlightManager::UpdateFlightState(){ // Update flight state
 
   if (HAL_GPIO_ReadPin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin) == GPIO_PIN_SET){
     if (rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryDrogueBackup
-        && flight_stats_->flight_data_array_index >= flight_stats_->drogue_backup_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop main backup deployment signal
+        && flight_stats_->sample_count >= flight_stats_->drogue_backup_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop main backup deployment signal
       HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_RESET);
       if (flight_stats_->flight_state == flightStates::kDrogueBackupDeployed)
         flight_stats_->flight_state = flightStates::kDrogueBackupSignalOff;
     }
     if (rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryMainPrimary
-        && flight_stats_->flight_data_array_index >= flight_stats_->main_primary_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop main backup deployment signal
+        && flight_stats_->sample_count >= flight_stats_->main_primary_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop main backup deployment signal
       HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_RESET);
       if (flight_stats_->flight_state == flightStates::kMainPrimaryDeployed)
         flight_stats_->flight_state = flightStates::kMainPrimarySignalOff;
     }
     if ((rocket_settings_->deploy_mode == DeployMode::kMainPrimaryMainBackup || rocket_settings_->deploy_mode == DeployMode::kDrogueBackupMainBackup)
-        && flight_stats_->flight_data_array_index >= flight_stats_->main_backup_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop main backup deployment signal
+        && flight_stats_->sample_count >= flight_stats_->main_backup_deploy_sample_count + SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop main backup deployment signal
       HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_RESET);
       if (flight_stats_->flight_state == flightStates::kMainBackupDeployed)
         flight_stats_->flight_state = flightStates::kMainBackupSignalOff;
@@ -309,12 +309,9 @@ void FlightManager::serviceBeeper(){
   //  speaker.beep(1, 200);
 }
 
-void FlightManager::AglToPacket(uint8_t *packet){
-  if (flight_stats_->flight_data_array_index >= SAMPLES_PER_SECOND)
-    if (flight_stats_->flight_state > flightStates::kWaitingLaunch && flight_stats_->flight_state < flightStates::kLanded)
-      memcpy(packet, &flight_stats_->agl[flight_stats_->flight_data_array_index - SAMPLES_PER_SECOND], sizeof(float) * SAMPLES_PER_SECOND);
-    else
-      *packet = flight_stats_->agl[flight_stats_->flight_data_array_index - 1];
+void FlightManager::AglToPacket(uint8_t *packet, uint8_t length){
+  if (flight_stats_->flight_data_array_index >= length)
+      memcpy(packet, &flight_stats_->agl[flight_stats_->flight_data_array_index - length + 1], sizeof(float) * length);
 }
 
 float FlightManager::GetGForceShortSample(){

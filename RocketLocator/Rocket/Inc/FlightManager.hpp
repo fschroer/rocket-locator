@@ -2,9 +2,10 @@
 #define FLIGHT_MANAGER
 
 #include "RocketDefs.hpp"
-#include "RocketFile.hpp"
 #include "bmp280.h"
 #include "Accelerometer.hpp"
+#include "sys_app.h"
+#include "math.h"
 
 #define TEST 1
 //#define DROGUE_SENSE_PIN 15
@@ -30,7 +31,8 @@ public:
   void Begin();
   void GetAccelerometerData();
   void FlightService();
-  void AglToPacket(uint8_t *packet);
+  void IncrementFlightDataQueue();
+  void AglToPacket(uint8_t *packet, uint8_t length);
   DeployMode GetDeployMode();
   void SetDeployMode(DeployMode deploy_mode);
   void SaveRocketSettings();

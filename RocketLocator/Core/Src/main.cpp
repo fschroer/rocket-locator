@@ -1,7 +1,5 @@
 #include "main.h"
 #include "subghz_phy_app.h"
-#include "usart.h"
-#include "stdlib.h"
 #include "RocketFactory.hpp"
 #include "sys_app.h"
 

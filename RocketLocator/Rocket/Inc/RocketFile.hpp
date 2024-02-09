@@ -5,7 +5,6 @@
 #include "RocketDefs.hpp"
 #include "Accelerometer.hpp"
 #include "math.h"
-//#include "cstring"
 #include "string.h"
 
 #define ARCHIVE_PAGE_SIZE 0x800
@@ -17,18 +16,6 @@
 #define ACCELEROMETER_ARCHIVE_PAGES 4
 #define ACCELEROMETER_SAVE_BUFFER_SIZE 3
 #define ARCHIVE_POSITIONS 10
-
-struct RocketSettings {
-  uint8_t archive_position = 0;
-  DeployMode deploy_mode = kDroguePrimaryDrogueBackup;
-  int launch_detect_altitude = 30; // meters
-  int drogue_primary_deploy_delay = 0; // tenths of a second
-  int drogue_backup_deploy_delay = 20; // tenths of a second
-  int main_primary_deploy_altitude = 130; // meters
-  int main_backup_deploy_altitude = 100; // meters
-  int deploy_signal_duration = 10; // tenths of a second
-  int lora_channel = 0;
-};
 
 class RocketFile{
 public:
@@ -47,7 +34,7 @@ public:
   HAL_StatusTypeDef CloseAccelerometerArchive();
   bool ReadAccelerometerData(uint8_t archive_position, int sample_count, int max_sample_count, Accelerometer_t *accelerometer);
   bool MaxAccelerometerArchiveSampleIndex(uint32_t accelerometer_data_archive_base_address, uint32_t accelerometer_data_archive_address);
-  void UpdateArchivePosition(uint8_t *archive_position);
+  void UpdateArchivePosition(RocketSettings *rocket_settings);
 private:
   uint32_t settings_archive_address_ = ROCKET_SETTINGS_BASE_ADDRESS;
   uint8_t altimeter_data_buffer_index_ = 0;

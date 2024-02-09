@@ -324,7 +324,7 @@ void RocketConfig::ExportData(UART_HandleTypeDef *huart2, uint8_t archive_positi
   HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   rocket_file_.ReadFlightMetadata(archive_position, &flight_stats_);
   int sample_index = 0;
-  char datetime[22];
+  char datetime[DATE_STRING_LENGTH];
   uint16_t agl = 0;
   char s_agl[6] = {0};
   Accelerometer_t accelerometer;
@@ -344,20 +344,22 @@ void RocketConfig::ExportData(UART_HandleTypeDef *huart2, uint8_t archive_positi
     MakeLine(export_line, export_line, y_accel, ",");
     uart_line_len = MakeLine(export_line, export_line, z_accel, crlf_);
     HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+    sample_index++;
   }
 }
 
 void RocketConfig::MakeDateTime(char *target, int date, int time, int sample_count){
   tm sample_time;
   sample_time.tm_mday = date / 10000;
-  sample_time.tm_mon = (date - date / 10000) / 100;
-  sample_time.tm_year = date % 100;
+  sample_time.tm_mon = (date - date / 10000 * 10000) / 100 - 1;
+  sample_time.tm_year = CENTURY + date % 100;
   sample_time.tm_hour = time / 10000;
-  sample_time.tm_min = (time - time / 10000) / 100;
-  sample_time.tm_sec = time % 100 + sample_count < flight_stats_.drogue_primary_deploy_sample_count ? sample_count / SAMPLES_PER_SECOND
-       : flight_stats_.drogue_primary_deploy_sample_count / SAMPLES_PER_SECOND + flight_stats_.drogue_primary_deploy_sample_count - sample_count;
+  sample_time.tm_min = (time - time / 10000 * 10000) / 100;
+  sample_time.tm_sec = (time % 100) + (sample_count < flight_stats_.drogue_primary_deploy_sample_count ? sample_count / SAMPLES_PER_SECOND
+       : flight_stats_.drogue_primary_deploy_sample_count / SAMPLES_PER_SECOND + sample_count - flight_stats_.drogue_primary_deploy_sample_count);
   mktime(&sample_time);
-  strftime(target, sizeof(target), "%FT%TZ", &sample_time);
+  strftime(target, DATE_STRING_LENGTH, "%Y/%m/%d %H:%M:%S", &sample_time);
+  target[19] = '.';
   if (sample_count < flight_stats_.drogue_primary_deploy_sample_count){
     target[20] = int((float)(sample_count % SAMPLES_PER_SECOND) / SAMPLES_PER_SECOND * 10) + '0';
     target[21] = int((float)(sample_count % SAMPLES_PER_SECOND) / SAMPLES_PER_SECOND * 100) % 10 + '0';

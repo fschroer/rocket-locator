@@ -10,6 +10,7 @@
 #define FLIGHT_DATA_ARRAY_SIZE 2 * SAMPLES_PER_SECOND
 #define MAX_LORA_CHANNEL 63
 #define UART_TIMEOUT 5000
+#define CENTURY 100
 
 enum DeviceState{
   kRunning = 0,
@@ -42,6 +43,18 @@ enum flightStates
   kLanded = 12
 };
 
+struct RocketSettings {
+  uint8_t archive_position = 0;
+  DeployMode deploy_mode = kDroguePrimaryDrogueBackup;
+  int launch_detect_altitude = 30; // meters
+  int drogue_primary_deploy_delay = 0; // tenths of a second
+  int drogue_backup_deploy_delay = 20; // tenths of a second
+  int main_primary_deploy_altitude = 130; // meters
+  int main_backup_deploy_altitude = 100; // meters
+  int deploy_signal_duration = 10; // tenths of a second
+  int lora_channel = 0;
+};
+
 struct FlightStats {
   int launch_date;
   int launch_time;
@@ -64,10 +77,10 @@ struct FlightStats {
   float landing_altitude;
   int landing_sample_count;
   int sample_count;
-  int flight_data_array_index;
   float g_range_scale;
   uint8_t flight_state = flightStates::kWaitingLaunch;
   float agl_adjust = 0.0;
+  int flight_data_array_index;
   float agl[FLIGHT_DATA_ARRAY_SIZE] = {0.0};
   Accelerometer_t accelerometer[FLIGHT_DATA_ARRAY_SIZE];
 };

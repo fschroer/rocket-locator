@@ -49,7 +49,7 @@ void RocketFactory::ProcessRocketEvents(){
       }
       if (flight_stats_.flight_state == flightStates::kDroguePrimaryDeployed){
         if (!accelerometer_archive_closed_){
-          rocket_file_.CloseAccelerometerArchive();
+          //rocket_file_.CloseAccelerometerArchive();
           accelerometer_archive_closed_ = true;
         }
       }
@@ -57,7 +57,7 @@ void RocketFactory::ProcessRocketEvents(){
         if (!altimeter_archive_closed_){
           rocket_file_.WriteFlightMetadata(&flight_stats_);
           rocket_file_.CloseAltimeterArchive();
-          rocket_file_.UpdateArchivePosition(&rocket_settings_.archive_position);
+          rocket_file_.UpdateArchivePosition(&rocket_settings_);
           rocket_file_.SaveRocketSettings(&rocket_settings_);
           altimeter_archive_closed_ = true;
         }
@@ -71,6 +71,7 @@ void RocketFactory::ProcessRocketEvents(){
         rocket_service_count_ = 0;
         SendTelemetryData();
       }
+      flight_manager_.IncrementFlightDataQueue();
       break;
     case DeviceState::kConfig:
       break;
@@ -87,11 +88,16 @@ void RocketFactory::ProcessRocketEvents(){
 void RocketFactory::SendTelemetryData(){
   rocket_gps_.SetFlightState(flight_stats_.flight_state);
   uint8_t telemetry_data_size = rocket_gps_.TelemetryDataSize();
-  uint8_t telemetryPacket[telemetry_data_size + sizeof(float) + (SAMPLES_PER_SECOND - 1) *
-                          (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kDroguePrimaryDeployed)] = {0};
+  uint8_t agl_data_size;
+  if (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kDroguePrimaryDeployed)
+    agl_data_size = SAMPLES_PER_SECOND;
+  else
+    agl_data_size = 1;
+  uint8_t packet_size = telemetry_data_size + agl_data_size * sizeof(float);
+  uint8_t telemetryPacket[packet_size] = {0};
   rocket_gps_.GgaToPacket(telemetryPacket);
-  flight_manager_.AglToPacket(telemetryPacket + telemetry_data_size);
-  Radio.Send(telemetryPacket, sizeof(telemetryPacket));
+  flight_manager_.AglToPacket(telemetryPacket + telemetry_data_size, agl_data_size);
+  Radio.Send(telemetryPacket, packet_size);
 }
 
 void RocketFactory::ProcessUART1Char(uint8_t uart_char){
