@@ -26,6 +26,7 @@ void RocketGPS::ProcessGgaSentence(){
         case 1:
           gga_sentence_[i] = 0;
           telemetry_data_.time_stamp = atoi((const char*)&gga_sentence_[iPrev + 1]);
+          gps_time_valid_ = true;
           break;
         case 2:
           gga_sentence_[i] = 0;
@@ -96,6 +97,7 @@ void RocketGPS::ProcessRmcSentence(){
         case 9:
           rmc_sentence_[i] = 0;
           telemetry_data_.date_stamp = atoi((const char*)&rmc_sentence_[iPrev + 1]);
+          gps_date_valid_ = true;
           break;
       }
       iPrev = i;
@@ -143,4 +145,8 @@ int RocketGPS::GetDate(){
 
 int RocketGPS::GetTime(){
   return telemetry_data_.time_stamp;
+}
+
+bool RocketGPS::GPSDatestampValid(){
+  return gps_date_valid_ && gps_time_valid_;
 }

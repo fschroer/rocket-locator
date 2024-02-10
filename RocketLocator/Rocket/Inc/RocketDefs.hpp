@@ -33,14 +33,10 @@ enum flightStates
   kBurnout = 2,
   kNoseover = 3,
   kDroguePrimaryDeployed = 4,
-  kDroguePrimarySignalOff = 5,
-  kDrogueBackupDeployed = 6,
-  kDrogueBackupSignalOff = 7,
-  kMainPrimaryDeployed = 8,
-  kMainPrimarySignalOff = 9,
-  kMainBackupDeployed = 10,
-  kMainBackupSignalOff = 11,
-  kLanded = 12
+  kDrogueBackupDeployed = 5,
+  kMainPrimaryDeployed = 6,
+  kMainBackupDeployed = 7,
+  kLanded = 8
 };
 
 struct RocketSettings {
@@ -75,12 +71,13 @@ struct FlightStats {
   float main_backup_deploy_altitude;
   int main_backup_deploy_sample_count;
   float landing_altitude;
-  int landing_sample_count;
-  int sample_count;
-  float g_range_scale;
+  int landing_sample_count = 0;
+  int sample_count = 0;
+  float g_range_scale = 0;
   uint8_t flight_state = flightStates::kWaitingLaunch;
   float agl_adjust = 0.0;
-  int flight_data_array_index;
+  int flight_data_array_index = 0;
+  uint16_t test_data_sample_count = 0;
   float agl[FLIGHT_DATA_ARRAY_SIZE] = {0.0};
   Accelerometer_t accelerometer[FLIGHT_DATA_ARRAY_SIZE];
 };

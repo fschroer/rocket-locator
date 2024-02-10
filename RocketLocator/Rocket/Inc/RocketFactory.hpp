@@ -46,6 +46,7 @@ private:
   uint8_t config_cycle_count_ = 0;
 
   bool archive_opened_ = false;
+  bool datestamp_saved_ = false;
   bool altimeter_archive_closed_ = false;
   bool accelerometer_archive_closed_ = false;
 

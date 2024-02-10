@@ -29,31 +29,39 @@ void RocketFactory::ProcessRocketEvents(){
     case DeviceState::kRunning:
       flight_manager_.FlightService();
       if (flight_stats_.flight_state == flightStates::kLaunched && !archive_opened_){
-        flight_stats_.launch_date = rocket_gps_.GetDate();
-        flight_stats_.launch_time = rocket_gps_.GetTime();
         for (int i = flight_stats_.flight_data_array_index - LAUNCH_LOOKBACK_SAMPLES + 1; i < flight_stats_.flight_data_array_index; i++){
           rocket_file_.WriteAltimeterSample(flight_stats_.agl[i]);
           rocket_file_.WriteAccelerometerSample(&flight_stats_.accelerometer[i]);
         }
         archive_opened_ = true;
       }
+      if (flight_stats_.flight_state >= flightStates::kLaunched && rocket_gps_.GPSDatestampValid() && !datestamp_saved_){
+        flight_stats_.launch_date = rocket_gps_.GetDate(); //low priority to do: adjust date / time if received valid after launch
+        flight_stats_.launch_time = rocket_gps_.GetTime();
+        datestamp_saved_ = true;
+      }
       if (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kLanded){
         if (flight_stats_.flight_state < flightStates::kDroguePrimaryDeployed){
           rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.flight_data_array_index]);
           rocket_file_.WriteAccelerometerSample(&flight_stats_.accelerometer[flight_stats_.flight_data_array_index]);
+          flight_stats_.sample_count++;
         }
-        else{
-          if (rocket_service_count_ == 10)
+        else if (rocket_service_count_ == 10){
             rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.flight_data_array_index]);
+            flight_stats_.sample_count++;
         }
       }
       if (flight_stats_.flight_state == flightStates::kDroguePrimaryDeployed){
         if (!accelerometer_archive_closed_){
-          //rocket_file_.CloseAccelerometerArchive();
+          rocket_file_.CloseAccelerometerArchive();
           accelerometer_archive_closed_ = true;
         }
       }
       if (flight_stats_.flight_state == flightStates::kLanded){
+        if (!datestamp_saved_){
+          flight_stats_.launch_date = rocket_gps_.GetDate();
+          flight_stats_.launch_time = rocket_gps_.GetTime();
+        }
         if (!altimeter_archive_closed_){
           rocket_file_.WriteFlightMetadata(&flight_stats_);
           rocket_file_.CloseAltimeterArchive();

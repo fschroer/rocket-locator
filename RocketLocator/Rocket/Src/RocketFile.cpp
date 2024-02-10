@@ -178,7 +178,7 @@ HAL_StatusTypeDef RocketFile::CloseAccelerometerArchive(){
 
 bool RocketFile::ReadAccelerometerData(uint8_t archive_position, int sample_index, int max_sample_index, Accelerometer_t *accelerometer){
   accelerometer_data_archive_base_address_ = ACCELEROMETER_DATA_BASE_ADDRESS + archive_position * ACCELEROMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
-  uint32_t address = accelerometer_data_archive_base_address_ + sample_index * sizeof(uint16_t);
+  uint32_t address = accelerometer_data_archive_base_address_ + sample_index * sizeof(Accelerometer_t);
 
   if (sample_index <= max_sample_index && !MaxAccelerometerArchiveSampleIndex(accelerometer_data_archive_base_address_, address)){
     *accelerometer = *(Accelerometer_t *)address;

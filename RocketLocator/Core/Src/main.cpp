@@ -33,7 +33,6 @@ volatile float mX = 0.0, mY = 0.0, mZ = 0.0;
 volatile float m_g_force = 0.0;
 
 int main(void){
-  //for (;mApplicationState < 100000; mApplicationState++);
   HAL_Init();
   SystemClock_Config();
   MX_GPIO_Init();

@@ -37,6 +37,7 @@ public:
   void SetFlightState(uint8_t flight_state);
   int GetDate();
   int GetTime();
+  bool GPSDatestampValid();
 private:
   uint16_t gps_msg_buffer_index_ = 0;
   uint8_t gps_msg_buffer_[RX_BUFFER_SIZE];
@@ -44,6 +45,7 @@ private:
   uint8_t gga_sentence_[RX_BUFFER_SIZE];
   uint16_t rmc_sentence_length_ = 0;
   uint8_t rmc_sentence_[RX_BUFFER_SIZE];
+  bool gps_date_valid_ = false, gps_time_valid_ = false;
 
   void ProcessGgaSentence();
   void ProcessRmcSentence();

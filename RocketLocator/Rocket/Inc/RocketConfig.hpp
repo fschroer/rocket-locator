@@ -10,7 +10,9 @@
 
 #define UART_LINE_MAX_LENGTH 255
 #define USER_INPUT_MAX_LENGTH 15
-#define DATE_STRING_LENGTH 22
+#define DATE_STRING_LENGTH 23
+#define ALTIMETER_STRING_LENGTH 6
+#define ACCELEROMETER_STRING_LENGTH 9
 
 enum UserInteractionState
 {
@@ -75,8 +77,9 @@ private:
 
   const char* data_menu_text_ = "\r\n\r\n\r\nRocket Locator Data Menu\r\n\0";
   const char* config_exit_text_ = "Exiting Data Menu\r\n\r\n\0";
-  const char* data_guidance_text_ = "Type 0-9 to retrieve CSV output of corresponding flight";
+  const char* data_guidance_text_ = "Start terminal logging and type 0-9 to retrieve CSV output of corresponding flight";
   const char* export_header_text_ = "Time, AGL, AccelX, AccelY, AccelZ\0";
+  const char* data_cancel_text_ = "Cancelled Data Menu\r\n\r\n\0";
 
   DeployMode deploy_mode_;
   int launch_detect_altitude_;
@@ -90,6 +93,9 @@ private:
   int MakeLine(char *target, const char *source1);
   int MakeLine(char *target, const char *source1, const char *source2);
   int MakeLine(char *target, const char *source1, const char *source2, const char *source3);
+  int MakeCSVExportLine(char *target, const char *source1, const char *source2);
+  int MakeCSVExportLine(char *target, const char *source1, const char *source2, const char *source3
+      , const char *source4, const char *source5);
   const char* ToStr(uint16_t source, bool tenths);
   bool StrCmp(char *string1, const char *string2, int length);
   void DisplayConfigSettingsMenu(UART_HandleTypeDef *huart2);
@@ -97,8 +103,8 @@ private:
   void AdjustConfigSetting(UART_HandleTypeDef *huart2, uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths);
   void DisplayDataMenu(UART_HandleTypeDef *huart2);
   void ExportData(UART_HandleTypeDef *huart2, uint8_t archive_position);
-  void MakeDateTime(char *target, int date, int time, int sample_index);
-  void FloatToCharArray(char *target, float source);
+  void MakeDateTime(char *target, int date, int time, int sample_index, bool fractional);
+  void FloatToCharArray(char *target, float source, uint8_t size);
 };
 
 #endif /* ROCKETCONFIG */
