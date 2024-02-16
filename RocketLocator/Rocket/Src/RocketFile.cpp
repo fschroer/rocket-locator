@@ -105,7 +105,7 @@ HAL_StatusTypeDef RocketFile::CloseAltimeterArchive(){
 void RocketFile::ReadFlightMetadata(uint8_t archive_position, FlightStats *flight_stats){
   altimeter_data_archive_base_address_ = ALTIMETER_DATA_BASE_ADDRESS + archive_position * ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
   uint32_t address = altimeter_data_archive_base_address_ + ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE - archive_metadata_size_ * sizeof(uint64_t);
-  for (int i = 0; i < archive_metadata_size_ * sizeof(uint64_t); i++)
+  for (uint8_t i = 0; i < archive_metadata_size_ * sizeof(uint64_t); i++)
     *((uint8_t *)flight_stats + i) = *((uint8_t *)address + i);
 }
 
@@ -194,20 +194,34 @@ bool RocketFile::MaxAccelerometerArchiveSampleIndex(uint32_t accelerometer_data_
 
 HAL_StatusTypeDef RocketFile::ErasePages(uint32_t base_address, uint8_t pages){
   HAL_StatusTypeDef status = HAL_OK;
-  if ((status = HAL_FLASH_Unlock()) != HAL_OK)
-    return status;
-  FLASH_EraseInitTypeDef EraseInitStruct;
-  EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
-  EraseInitStruct.Page = (base_address - 0x08000000) >> 11;
-  EraseInitStruct.NbPages = pages;
-  uint32_t PageError;
-  if ((status = HAL_FLASHEx_Erase(&EraseInitStruct, &PageError)) != HAL_OK) //Erase the Page Before a Write Operation
-    return status;
-  return HAL_FLASH_Lock();
+  uint64_t* address = (uint64_t*)base_address;
+  uint64_t* archive_end = (uint64_t*)(base_address + pages * ARCHIVE_PAGE_SIZE);
+  while (address < archive_end && *address == 0xffffffffffffffff) // Check to see if already erased
+    address++;
+  if (address < archive_end){ //If not already erased, unlock, erase, and lock
+    if ((status = HAL_FLASH_Unlock()) != HAL_OK)
+      return status;
+    FLASH_EraseInitTypeDef EraseInitStruct;
+    EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
+    EraseInitStruct.Page = (base_address - 0x08000000) >> 11;
+    EraseInitStruct.NbPages = pages;
+    uint32_t PageError;
+    if ((status = HAL_FLASHEx_Erase(&EraseInitStruct, &PageError)) != HAL_OK) //Erase the Page Before a Write Operation
+      return status;
+    return HAL_FLASH_Lock();
+  }
+  return HAL_OK;
 }
 
 void RocketFile::UpdateArchivePosition(RocketSettings *rocket_settings){
   rocket_settings->archive_position++;
   if (rocket_settings->archive_position == ARCHIVE_POSITIONS)
     rocket_settings->archive_position = 0;
+}
+
+void RocketFile::SetValidArchivePosition(uint8_t archive_position, bool valid){
+  valid_archive_position_[archive_position] = valid;
+}
+bool RocketFile::GetValidArchivePosition(uint8_t archive_position){
+  return valid_archive_position_[archive_position];
 }

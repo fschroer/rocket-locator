@@ -15,7 +15,13 @@ void RocketGPS::Begin(){
 void RocketGPS::ProcessGgaSentence(){
   uint8_t checksum = 0;
   bool checksumCaptureActive = false;
-  memset(&telemetry_data_, 0x0, sizeof(telemetry_data_));
+  telemetry_data_.time_stamp = 0;
+  telemetry_data_.latitude = 0.0;
+  telemetry_data_.longitude = 0.0;
+  telemetry_data_.q_ind = 0;
+  telemetry_data_.satellites = 0;
+  telemetry_data_.hdop = 0.0;
+  telemetry_data_.altitude = 0.0;
   int i = 0, iPrev = 0, field = 0;
   while (i < gga_sentence_length_){
     if (gga_sentence_[i] == ','){
@@ -58,7 +64,7 @@ void RocketGPS::ProcessGgaSentence(){
           break;
         case 9:
           gga_sentence_[i] = 0;
-          telemetry_data_.altitude = atof((const char*)&gga_sentence_[iPrev + 1]); //To do: populate with altimeter reading
+          telemetry_data_.altitude = atof((const char*)&gga_sentence_[iPrev + 1]);
           break;/*
         case 10:
           if (gpsSentence[iPrev + 1] != ',')

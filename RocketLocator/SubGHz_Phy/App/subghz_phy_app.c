@@ -40,7 +40,15 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+/* Configurations */
+/*Timeout*/
+#define RX_TIMEOUT_VALUE              3000
+#define TX_TIMEOUT_VALUE              3000
+/*Size of the payload to be sent*/
+#define MAX_APP_BUFFER_SIZE          255
+#if (PAYLOAD_LEN > MAX_APP_BUFFER_SIZE)
+#error PAYLOAD_LEN must be less or equal than MAX_APP_BUFFER_SIZE
+#endif /* (PAYLOAD_LEN > MAX_APP_BUFFER_SIZE) */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,7 +61,10 @@
 static RadioEvents_t RadioEvents;
 
 /* USER CODE BEGIN PV */
-
+/* App Rx Buffer*/
+//static uint8_t BufferRx[MAX_APP_BUFFER_SIZE];
+/* App Tx Buffer*/
+static uint8_t BufferTx[MAX_APP_BUFFER_SIZE];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,6 +118,31 @@ void SubghzApp_Init(void)
   Radio.Init(&RadioEvents);
 
   /* USER CODE BEGIN SubghzApp_Init_2 */
+  /* Radio Set frequency */
+  Radio.SetChannel(902000000); //Saved config frequency set in RocketFactory.
+
+  /* Radio configuration *//*
+  APP_LOG(TS_OFF, VLEVEL_M, "---------------\n\r");
+  APP_LOG(TS_OFF, VLEVEL_M, "LORA_MODULATION\n\r");
+  APP_LOG(TS_OFF, VLEVEL_M, "LORA_BW=%d kHz\n\r", (1 << LORA_BANDWIDTH) * 125);
+  APP_LOG(TS_OFF, VLEVEL_M, "LORA_SF=%d\n\r", LORA_SPREADING_FACTOR);
+*/
+  Radio.SetTxConfig(MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
+                    LORA_SPREADING_FACTOR, LORA_CODINGRATE,
+                    LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
+                    true, 0, 0, LORA_IQ_INVERSION_ON, TX_TIMEOUT_VALUE);
+
+  Radio.SetRxConfig(MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
+                    LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
+                    LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
+                    0, true, 0, 0, LORA_IQ_INVERSION_ON, true);
+
+  Radio.SetMaxPayloadLength(MODEM_LORA, MAX_APP_BUFFER_SIZE);
+
+
+  /*fills tx buffer*/
+  memset(BufferTx, 0x0, MAX_APP_BUFFER_SIZE);
+
 
   /* USER CODE END SubghzApp_Init_2 */
 }

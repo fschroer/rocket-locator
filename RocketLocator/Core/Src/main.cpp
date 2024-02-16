@@ -2,6 +2,7 @@
 #include "subghz_phy_app.h"
 #include "RocketFactory.hpp"
 #include "sys_app.h"
+#include "time.h"
 
 #define MAX_APP_BUFFER_SIZE 255
 #define PAYLOAD_LEN 64
@@ -31,6 +32,7 @@ volatile int mFlightState = flightStates::kWaitingLaunch;
 volatile DeployMode mDeployMode = DeployMode::kDroguePrimaryDrogueBackup;
 volatile float mX = 0.0, mY = 0.0, mZ = 0.0;
 volatile float m_g_force = 0.0;
+volatile int m_rocket_service_state = 0;
 
 int main(void){
   HAL_Init();
@@ -54,7 +56,9 @@ int main(void){
   while (1){
   	if (peripheral_service_interrupts_ > 0){
   		peripheral_service_interrupts_--;
+  		m_rocket_service_state = 1;
   		rocket_factory_.ProcessRocketEvents();
+  		m_rocket_service_state = 0;
   	}
   }
 }

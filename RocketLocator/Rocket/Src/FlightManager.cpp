@@ -21,7 +21,7 @@ void FlightManager::Begin(){
   }
   HAL_Delay(1000); //Allow time for init status light to stay visible
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
+  //HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
   float x_axis = 0.0, y_axis = 0.0, z_axis = 0.0;
   Accelerometer_t accelerometer;
   accelerometer_.UpdateAccelerometerValues(&accelerometer);
@@ -39,22 +39,21 @@ void FlightManager::Begin(){
     APP_LOG(TS_OFF, VLEVEL_M, "\r\nBMP280 initialization failed\r\n");
   }
   HAL_Delay(1000); //Allow time for BME to stabilize, init status light to stay visible
-  GetAGL();
-  flight_stats_->agl_adjust = sensor_altitude_;
   for (int i = 0; i < FLIGHT_DATA_ARRAY_SIZE - 1; i++){ // Populate flight data array
-    GetAltimeterData();
     GetAccelerometerData();
+    GetAGL();
     flight_stats_->flight_data_array_index++;
     flight_stats_->test_data_sample_count++;
   }
   flight_stats_->sample_count = LAUNCH_LOOKBACK_SAMPLES;
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
+  //HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
 }
 
 void FlightManager::FlightService(){
-  GetAltimeterData();
   GetAccelerometerData();
+  GetAGL();
+  UpdateVelocity();
   UpdateFlightState();
 }
 
@@ -71,31 +70,21 @@ void FlightManager::IncrementFlightDataQueue(){
   //serviceBeeper();
 }
 
-void FlightManager::GetAltimeterData(){
-  GetAGL();
-  if (TEST)
-    sensor_agl_ = test_agl_[flight_stats_->test_data_sample_count];
-  flight_stats_->agl[flight_stats_->flight_data_array_index] = sensor_agl_; // get altitude above ground level
-  UpdateVelocity();
-  agl_adjust_count_++;
-  if (flight_stats_->flight_state == flightStates::kWaitingLaunch && agl_adjust_count_ >= 60 * SAMPLES_PER_SECOND
-      && velocity_short_sample_ <= 1.0 && velocity_long_sample_ <= 1.0){
-    agl_adjust_count_ = 0;
-    flight_stats_->agl_adjust = sensor_altitude_;
-  }
-  mAGL = sensor_agl_;
-  mVelocityShortSample = velocity_short_sample_;
-  mVelocityLongSample = velocity_long_sample_;
-}
-
 void FlightManager::GetAGL(){
-    Bmp280ReadFloat(&bmp280_, &temperature_, &pressure_, &humidity_);
-    sensor_altitude_ = (44330 * (1.0 - pow(pressure_ / 101325, 0.1903)));
-  sensor_agl_ = sensor_altitude_ - flight_stats_->agl_adjust;
-  if (flight_stats_->flight_state > flightStates::kWaitingLaunch)
-    if (sensor_agl_ > flight_stats_->agl[flight_stats_->flight_data_array_index - 1] + MAX_ALTITUDE_SAMPLE_CHANGE || sensor_agl_ < flight_stats_->agl[flight_stats_->flight_data_array_index - 1] - MAX_ALTITUDE_SAMPLE_CHANGE)
-      sensor_agl_ = flight_stats_->agl[flight_stats_->flight_data_array_index - 1]; // Compensate for spurious values
-  //Serial.printf("%4.1f ", sensor_agl_);
+  Bmp280ReadFloat(&bmp280_, &temperature_, &pressure_, &humidity_);
+  sensor_altitude_ = (44330 * (1.0 - pow(pressure_ / 101325, 0.1903)));
+  if (flight_stats_->flight_state == flightStates::kWaitingLaunch && g_force_short_sample_ < MAX_AGL_ADJUST_G_FORCE){
+    if (agl_adjust_count_ == 0){
+      flight_stats_->agl_adjust = sensor_altitude_;
+    }
+    agl_adjust_count_++;
+    if (agl_adjust_count_ > AGL_RESET_TIME)
+      agl_adjust_count_ = 0;
+  }
+  flight_stats_->agl[flight_stats_->flight_data_array_index] = sensor_altitude_ - flight_stats_->agl_adjust;
+  if (TEST)
+    flight_stats_->agl[flight_stats_->flight_data_array_index] = test_agl_[flight_stats_->test_data_sample_count];
+  mAGL = flight_stats_->agl[flight_stats_->flight_data_array_index];
 }
 
 void FlightManager::GetAccelerometerData(){
@@ -137,9 +126,10 @@ void FlightManager::GetAccelerometerData(){
       g_force_short_sample_ += g_force;
     g_force_long_sample_ += g_force;
   }
-  m_g_force = g_force;
+  g_force_last_ = g_force;
   g_force_short_sample_ /= G_FORCE_SAMPLES_SHORT;
   g_force_long_sample_ /= G_FORCE_SAMPLES_LONG;
+  m_g_force = g_force;
   mX = accelerometer.x;
   mY = accelerometer.y;
   mZ = accelerometer.z;
@@ -264,6 +254,7 @@ void FlightManager::UpdateVelocity(){
       sampleTimeShort += 1.0 / SAMPLES_PER_SECOND;
     }
     velocity_short_sample_ /= velocity_short_sum_sq_; //sum of sampleTimes ^ 2
+    mVelocityShortSample = velocity_short_sample_;
     velocity_long_sample_ = 0.0;
     float sampleTimeLong = (1.0 - VELOCITY_SAMPLES_LONG) / (SAMPLES_PER_SECOND * 2);
     for (int i = flight_stats_->flight_data_array_index - VELOCITY_SAMPLES_LONG + 1; i <= flight_stats_->flight_data_array_index; i++){
@@ -271,6 +262,7 @@ void FlightManager::UpdateVelocity(){
       sampleTimeLong += 1.0 / SAMPLES_PER_SECOND;
     }
     velocity_long_sample_ /= velocity_long_sum_sq_; //sum of sampleTimes ^ 2
+    mVelocityLongSample = velocity_long_sample_;
   }
 }
 

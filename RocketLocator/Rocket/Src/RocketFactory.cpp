@@ -71,7 +71,8 @@ void RocketFactory::ProcessRocketEvents(){
         }
       }
       if (rocket_service_count_ == 10)
-        SendTelemetryData();
+        if (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kLanded)
+          SendTelemetryData();
       if (rocket_service_count_ == 20){ // Lower frequency conserves battery.
         if (flight_stats_.flight_state == flightStates::kWaitingLaunch){ // Blink LoRa transmit LED for visual validation until liftoff
           HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);

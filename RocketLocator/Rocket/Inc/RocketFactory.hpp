@@ -59,4 +59,6 @@ private:
   void SetDisplayDeployMode();
   void ResetDisplayDeployMode();
 };
+
+extern volatile int m_rocket_service_state;
 #endif

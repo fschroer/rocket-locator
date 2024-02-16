@@ -8,20 +8,17 @@
 #include "math.h"
 
 #define TEST 0
-//#define DROGUE_SENSE_PIN 15
-//#define MAIN_SENSE_PIN 5
-#define AGL_RESET_TIME_SECONDS 60 // Frequency with which altimeter adjustment offsets to ground level
+#define AGL_RESET_TIME 60 * SAMPLES_PER_SECOND // Frequency with which altimeter adjustment offsets to ground level
 #define LAUNCH_LOOKBACK_SAMPLES 21 // Must be odd and >= VELOCITY_SAMPLES_LONG
 #define VELOCITY_SAMPLES_LONG 21 // Must be odd and less than FLIGHT_DATA_ARRAY_SIZE
 #define VELOCITY_SAMPLES_SHORT 7 // Must be odd and less than VELOCITY_SAMPLES_LONG
 #define LAUNCH_VELOCITY 5.0 // Launch detection velocity threshold
+#define MAX_AGL_ADJUST_G_FORCE 1.1 // Maximum G force allowed for AGL adjustment
 #define LAUNCH_G_FORCE 1.5 // Launch detection acceleration threshold
 #define G_FORCE_SAMPLES_SHORT 3
 #define G_FORCE_SAMPLES_LONG 2 * SAMPLES_PER_SECOND // Must be less than FLIGHT_DATA_ARRAY_SIZE
-#define MACH_LOCKOUT_VELOCITY 250.0 // Mach = 340.29 m/s
-#define DEPLOYMENT_LOCKOUT_ALTITUDE_MAX_CHANGE 100.0 // Maximum altitude change to remove deployment lockout, in meters
 #define MAX_LANDING_ALTITUDE 30.0 // Maximum altitude to detect landing
-#define MAX_ALTITUDE_SAMPLE_CHANGE 4.5 * 340.29 / SAMPLES_PER_SECOND // Maximum altitude change per sample: Mach 4.5 = fastest amateur rocket velocity
+//#define MAX_ALTITUDE_SAMPLE_CHANGE 4.5 * 340.29 / SAMPLES_PER_SECOND // Maximum altitude change per sample: Mach 4.5 = fastest amateur rocket velocity
 #define DESCENT_RATE_THRESHOLD 0.25 // Landing detection velocity threshold in meters per second
 
 class FlightManager{
@@ -29,7 +26,6 @@ public:
   FlightManager();
   FlightManager(RocketSettings *rocket_settings, SensorValues *sensor_values, FlightStats *flight_stats);
   void Begin();
-  void GetAccelerometerData();
   void FlightService();
   void IncrementFlightDataQueue();
   void AglToPacket(uint8_t *packet, uint8_t length);
@@ -60,12 +56,11 @@ private:
   BMP280_HandleTypedef bmp280_;
   float pressure_, temperature_, humidity_;
   float sensor_altitude_ = 0.0;
-  float sensor_agl_ = 0.0;
   int agl_adjust_count_ = 0;
 
-  float g_force_short_sample_ = 0.0, g_force_long_sample_;
+  float g_force_last_ = 0.0, g_force_short_sample_ = 0.0, g_force_long_sample_;
 
-  void GetAltimeterData();
+  void GetAccelerometerData();
   void GetAGL();
   void UpdateFlightState();
   void UpdateVelocity();
@@ -81,5 +76,6 @@ extern volatile int mFlightState;
 extern volatile DeployMode mDeployMode;
 extern volatile float mX, mY, mZ;
 extern volatile float m_g_force;
+extern volatile int m_rocket_service_state;
 
 #endif

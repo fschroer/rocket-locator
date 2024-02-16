@@ -35,6 +35,8 @@ public:
   bool ReadAccelerometerData(uint8_t archive_position, int sample_count, int max_sample_count, Accelerometer_t *accelerometer);
   bool MaxAccelerometerArchiveSampleIndex(uint32_t accelerometer_data_archive_base_address, uint32_t accelerometer_data_archive_address);
   void UpdateArchivePosition(RocketSettings *rocket_settings);
+  void SetValidArchivePosition(uint8_t archive_position, bool valid);
+  bool GetValidArchivePosition(uint8_t archive_position);
 private:
   uint32_t settings_archive_address_ = ROCKET_SETTINGS_BASE_ADDRESS;
   uint8_t altimeter_data_buffer_index_ = 0;
@@ -46,6 +48,7 @@ private:
   uint32_t accelerometer_data_archive_base_address_ = ACCELEROMETER_DATA_BASE_ADDRESS;
   uint32_t accelerometer_data_archive_address_ = ACCELEROMETER_DATA_BASE_ADDRESS;
   static const uint8_t archive_metadata_size_ = 11;
+  bool valid_archive_position_[ARCHIVE_POSITIONS] = {false};
 
   HAL_StatusTypeDef ErasePages(uint32_t base_address, uint8_t pages);
 };

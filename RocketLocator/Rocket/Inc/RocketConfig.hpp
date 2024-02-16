@@ -45,12 +45,12 @@ private:
   UserInteractionState user_interaction_state_ = kWaitingForCommand;
   char* uart_line_ = new char[UART_LINE_MAX_LENGTH + 1];
   char* user_input_ = new char[USER_INPUT_MAX_LENGTH + 1];
-  const char* clear_screen_ = "\x1b[2J\0";
+  const char* clear_screen_ = "\x1b[2J\r\0";
   const char* config_command_ = "config\0";
   const char* data_command_ = "data\0";
   const char* crlf_ = "\r\n\0";
   const char* cr_ = "\r\0";
-  const char* config_menu_text_ = "\r\n\r\n\r\nRocket Locator Configuration\r\n\0";
+  const char* config_menu_intro_ = "Rocket Locator Configuration\r\n\0";
   const char* config_save_text_ = "Saved Configuration\r\n\r\n\0";
   const char* config_cancel_text_ = "Cancelled Configuration\r\n\r\n\0";
   const char* deploy_mode_text_ = "1) Deploy Mode:\t\t\t\t\0";
@@ -75,9 +75,10 @@ private:
   const char* deploy_signal_duration_edit_text_ = "Edit Deploy Signal Duration (s):\r\n\0";
   const char* lora_channel_edit_text_ = "Edit Lora Channel (0-63):\r\n\0";
 
-  const char* data_menu_text_ = "\r\n\r\n\r\nRocket Locator Data Menu\r\n\0";
+  const char* data_menu_intro_ = "Rocket Locator Data Menu\r\n\r\n\0";
+  const char* data_menu_header_ = "#  Date       Time     Apogee (m) Time to Apogee (s)\r\n\0";
   const char* config_exit_text_ = "Exiting Data Menu\r\n\r\n\0";
-  const char* data_guidance_text_ = "Start terminal logging and type 0-9 to retrieve CSV output of corresponding flight";
+  const char* data_guidance_text_ = "\r\nStart terminal logging and enter a valid number to retrieve CSV output of corresponding flight\r\n";
   const char* export_header_text_ = "Time, AGL, AccelX, AccelY, AccelZ\0";
   const char* data_cancel_text_ = "Cancelled Data Menu\r\n\r\n\0";
 
@@ -103,8 +104,8 @@ private:
   void AdjustConfigSetting(UART_HandleTypeDef *huart2, uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths);
   void DisplayDataMenu(UART_HandleTypeDef *huart2);
   void ExportData(UART_HandleTypeDef *huart2, uint8_t archive_position);
-  void MakeDateTime(char *target, int date, int time, int sample_index, bool fractional);
-  void FloatToCharArray(char *target, float source, uint8_t size);
+  void MakeDateTime(char *target, int date, int time, int sample_index, bool time_zone_adjust, bool fractional);
+  void FloatToCharArray(char *target, float source, uint8_t size, uint8_t fraction_digits);
 };
 
 #endif /* ROCKETCONFIG */
