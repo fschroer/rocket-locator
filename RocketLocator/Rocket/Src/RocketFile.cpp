@@ -113,7 +113,7 @@ bool RocketFile::ReadAltimeterData(uint8_t archive_position, int sample_index, i
   altimeter_data_archive_base_address_ = ALTIMETER_DATA_BASE_ADDRESS + archive_position * ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
   uint32_t address = altimeter_data_archive_base_address_ + sample_index * sizeof(uint16_t);
 
-  if (sample_index <= max_sample_index && !MaxAltimeterArchiveSampleIndex(altimeter_data_archive_base_address_, address)){
+  if (sample_index < max_sample_index && !MaxAltimeterArchiveSampleIndex(altimeter_data_archive_base_address_, address)){
     *agl = *(uint16_t *)address;
     return true;
   }
@@ -180,7 +180,7 @@ bool RocketFile::ReadAccelerometerData(uint8_t archive_position, int sample_inde
   accelerometer_data_archive_base_address_ = ACCELEROMETER_DATA_BASE_ADDRESS + archive_position * ACCELEROMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
   uint32_t address = accelerometer_data_archive_base_address_ + sample_index * sizeof(Accelerometer_t);
 
-  if (sample_index <= max_sample_index && !MaxAccelerometerArchiveSampleIndex(accelerometer_data_archive_base_address_, address)){
+  if (sample_index < max_sample_index && !MaxAccelerometerArchiveSampleIndex(accelerometer_data_archive_base_address_, address)){
     *accelerometer = *(Accelerometer_t *)address;
     return true;
   }

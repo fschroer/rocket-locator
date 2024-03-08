@@ -104,7 +104,7 @@ int32_t BSP_RADIO_ConfigRFSwitch(BSP_RADIO_Switch_TypeDef Config)
     case RADIO_SWITCH_RFO_HP:
     {
       /*Turns On in Tx High Power the RF Switch */
-      HAL_GPIO_WritePin(RF_SW_CTRL_GPIO_PORT, RF_SW_CTRL_PIN, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(RF_SW_CTRL_GPIO_PORT, RF_SW_CTRL_PIN, GPIO_PIN_SET);
       break;
     }
     default:

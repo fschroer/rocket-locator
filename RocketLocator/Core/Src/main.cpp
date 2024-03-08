@@ -28,7 +28,7 @@ volatile int peripheral_service_interrupts_;
 volatile float mAGL = 0.0;
 volatile float mVelocityShortSample = 0.0;
 volatile float mVelocityLongSample = 0.0;
-volatile int mFlightState = flightStates::kWaitingLaunch;
+volatile int mFlightState = FlightStates::kWaitingLaunch;
 volatile DeployMode mDeployMode = DeployMode::kDroguePrimaryDrogueBackup;
 volatile float mX = 0.0, mY = 0.0, mZ = 0.0;
 volatile float m_g_force = 0.0;

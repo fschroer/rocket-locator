@@ -1,7 +1,7 @@
 #include <RocketConfig.hpp>
 
 RocketConfig::RocketConfig(){
-  //HAL_UART_Transmit(huart2, (uint8_t*)&crlf_, 2, UART_TIMEOUT);
+  //HAL_UART_Transmit(huart2_, (uint8_t*)&crlf_, 2, UART_TIMEOUT);
 }
 
 RocketConfig::RocketConfig(DeviceState *device_state, RocketSettings *rocket_settings){
@@ -12,10 +12,11 @@ RocketConfig::RocketConfig(DeviceState *device_state, RocketSettings *rocket_set
 void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
   static int char_pos = 0;
   int uart_line_len = 0;
+  huart2_ = huart2;
   switch (user_interaction_state_){
   case UserInteractionState::kWaitingForCommand:
     if (((uart_char >= 'A' && uart_char <= 'Z') || (uart_char >= 'a' && uart_char <= 'z')) && char_pos < USER_INPUT_MAX_LENGTH){
-      HAL_UART_Transmit(huart2, &uart_char, 1, UART_TIMEOUT);
+      HAL_UART_Transmit(huart2_, &uart_char, 1, UART_TIMEOUT);
       user_input_[char_pos++] = uart_char;
     }
     else switch (uart_char){
@@ -31,18 +32,28 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
         main_backup_deploy_altitude_ = rocket_settings_->main_backup_deploy_altitude;
         deploy_signal_duration_ = rocket_settings_->deploy_signal_duration;
         lora_channel_ = rocket_settings_->lora_channel;
-        DisplayConfigSettingsMenu(huart2);
+        DisplayConfigSettingsMenu();
       }
       else if (StrCmp(user_input_, data_command_, char_pos)){
         *device_state_ = DeviceState::kConfig;
-        user_interaction_state_ = UserInteractionState::kGetData;
-        DisplayDataMenu(huart2);
+        user_interaction_state_ = UserInteractionState::kDataHome;
+        DisplayDataMenu();
+      }
+      else if (StrCmp(user_input_, test_command_, char_pos)){
+        *device_state_ = DeviceState::kConfig;
+        user_interaction_state_ = UserInteractionState::kTestHome;
+        DisplayTestMenu();
+      }
+      else if (StrCmp(user_input_, dfu_command_, char_pos)){
+        *device_state_ = DeviceState::kConfig;
+        user_interaction_state_ = UserInteractionState::kDfuHome;
+        DisplayDfuMenu();
       }
       char_pos = 0;
       user_input_[0] = 0;
       break;
     case 8: // Backspace
-      HAL_UART_Transmit(huart2, &uart_char, 1, UART_TIMEOUT);
+      HAL_UART_Transmit(huart2_, &uart_char, 1, UART_TIMEOUT);
       user_input_[--char_pos] = 0;
       break;
     }
@@ -65,7 +76,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
     case 27: // Esc key
       *device_state_ = DeviceState::kRunning;
       user_interaction_state_ = UserInteractionState::kWaitingForCommand;
-      uart_line_len = MakeLine(uart_line_, config_cancel_text_);
+      uart_line_len = MakeLine(uart_line_, cancel_text_);
       break;
     case 49: // 1 = Edit deploy mode
       user_interaction_state_ = UserInteractionState::kEditDeployMode;
@@ -100,17 +111,17 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
       uart_line_len = MakeLine(uart_line_, lora_channel_edit_text_, edit_guidance_text_, ToStr(lora_channel_, false));
       break;
     }
-    HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+    HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
     break;
   case UserInteractionState::kEditDeployMode:
     switch (uart_char){
     case 13: // Enter key
       user_interaction_state_ = UserInteractionState::kConfigHome;
-      DisplayConfigSettingsMenu(huart2);
+      DisplayConfigSettingsMenu();
       break;
     case 27: // Esc key
       user_interaction_state_ = UserInteractionState::kConfigHome;
-      DisplayConfigSettingsMenu(huart2);
+      DisplayConfigSettingsMenu();
       break;
     case 91: // [ = decrease value
       switch (deploy_mode_){
@@ -128,7 +139,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
         break;
       }
       uart_line_len = MakeLine(uart_line_, cr_, DeployModeString(deploy_mode_));
-      HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+      HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
       break;
     case 93: // [ = increase value
       switch (deploy_mode_){
@@ -146,39 +157,114 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
         break;
       }
       uart_line_len = MakeLine(uart_line_, cr_, DeployModeString(deploy_mode_));
-      HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+      HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
       break;
     }
     break;
   case UserInteractionState::kEditLaunchDetectAltitude:
-    AdjustConfigSetting(huart2, uart_char, &launch_detect_altitude_, 50, false);
+    AdjustConfigSetting(uart_char, &launch_detect_altitude_, 50, false);
     break;
   case UserInteractionState::kEditDroguePrimaryDeployDelay:
-    AdjustConfigSetting(huart2, uart_char, &drogue_primary_deploy_delay_, 20, true);
+    AdjustConfigSetting(uart_char, &drogue_primary_deploy_delay_, 20, true);
     break;
   case UserInteractionState::kEditDrogueBackupDeployDelay:
-    AdjustConfigSetting(huart2, uart_char, &drogue_backup_deploy_delay_, 40, true);
+    AdjustConfigSetting(uart_char, &drogue_backup_deploy_delay_, 40, true);
     break;
   case UserInteractionState::kEditMainPrimaryDeployAltitude:
-    AdjustConfigSetting(huart2, uart_char, &main_primary_deploy_altitude_, 400, false);
+    AdjustConfigSetting(uart_char, &main_primary_deploy_altitude_, 400, false);
     break;
   case UserInteractionState::kEditMainBackupDeployAltitude:
-    AdjustConfigSetting(huart2, uart_char, &main_backup_deploy_altitude_, 400, false);
+    AdjustConfigSetting(uart_char, &main_backup_deploy_altitude_, 400, false);
     break;
   case UserInteractionState::kEditDeploySignalDuration:
-    AdjustConfigSetting(huart2, uart_char, &deploy_signal_duration_, 20, true);
+    AdjustConfigSetting(uart_char, &deploy_signal_duration_, 20, true);
     break;
   case UserInteractionState::kEditLoraChannel:
-    AdjustConfigSetting(huart2, uart_char, &lora_channel_, MAX_LORA_CHANNEL, false);
+    AdjustConfigSetting(uart_char, &lora_channel_, MAX_LORA_CHANNEL, false);
     break;
-  case UserInteractionState::kGetData:
+  case UserInteractionState::kDataHome:
     if (uart_char >= '0' && uart_char <= '9' && rocket_file_.GetValidArchivePosition(uart_char - '0'))
-        ExportData(huart2, uart_char - '0');
+        ExportData(uart_char - '0');
+    else if (uart_char == 27){ // Esc key
+      *device_state_ = DeviceState::kRunning;
+      user_interaction_state_ = UserInteractionState::kWaitingForCommand;
+      uart_line_len = MakeLine(uart_line_, cancel_text_);
+      HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+    }
+    break;
+  case UserInteractionState::kTestHome:
+    if (uart_char == '1'){
+      *device_state_ = DeviceState::kTest;
+      user_interaction_state_ = UserInteractionState::kTestDeploy1;
+      test_deploy_count_ = 200;
+    }
+    else if (uart_char == '2'){
+      *device_state_ = DeviceState::kTest;
+      user_interaction_state_ = UserInteractionState::kTestDeploy2;
+      test_deploy_count_ = 200;
+    }
+    else if (uart_char == 27){ // Esc key
+      *device_state_ = DeviceState::kRunning;
+      user_interaction_state_ = UserInteractionState::kWaitingForCommand;
+      uart_line_len = MakeLine(uart_line_, cancel_text_);
+      HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+    }
+    break;
+  case UserInteractionState::kTestDeploy1:
+  case UserInteractionState::kTestDeploy2:
     if (uart_char == 27){ // Esc key
       *device_state_ = DeviceState::kRunning;
       user_interaction_state_ = UserInteractionState::kWaitingForCommand;
-      uart_line_len = MakeLine(uart_line_, data_cancel_text_);
-      HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+      uart_line_len = MakeLine(uart_line_, cancel_text_);
+      HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+    }
+    break;
+  case UserInteractionState::kDfuHome:
+    if (uart_char == 13) // Enter key
+      StartBootloader();
+    else if (uart_char == 27){ // Esc key
+      *device_state_ = DeviceState::kRunning;
+      user_interaction_state_ = UserInteractionState::kWaitingForCommand;
+      uart_line_len = MakeLine(uart_line_, cancel_text_);
+      HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+    }
+    break;
+  }
+}
+
+void RocketConfig::ProcessTestDeploy(){
+  switch (user_interaction_state_){
+  case UserInteractionState::kTestDeploy1:
+    TestDeploy(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin);
+    break;
+  case UserInteractionState::kTestDeploy2:
+    TestDeploy(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin);
+    break;
+  }
+}
+
+void RocketConfig::TestDeploy(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
+  test_deploy_count_--;
+  if (test_deploy_count_ > 60){
+    if (test_deploy_count_ % 20 >= 15)
+      HAL_GPIO_WritePin(LED5_GPIO_Port, LED5_Pin, GPIO_PIN_SET);
+    else
+      HAL_GPIO_WritePin(LED5_GPIO_Port, LED5_Pin, GPIO_PIN_RESET);
+  }
+  else if (test_deploy_count_ > 0){
+    if (test_deploy_count_ % 10 >= 5)
+      HAL_GPIO_WritePin(LED5_GPIO_Port, LED5_Pin, GPIO_PIN_SET);
+    else
+      HAL_GPIO_WritePin(LED5_GPIO_Port, LED5_Pin, GPIO_PIN_RESET);
+  }
+  else if (test_deploy_count_ == 0)
+    HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+  else if (HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) == GPIO_PIN_SET){
+    if (test_deploy_count_ <= -SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop deploy 1 signal
+      HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_RESET);
+      *device_state_ = DeviceState::kRunning;
+      user_interaction_state_ = UserInteractionState::kWaitingForCommand;
+      HAL_UART_Transmit(huart2_, (uint8_t*)test_complete_text_, strlen(test_complete_text_), UART_TIMEOUT);
     }
   }
 }
@@ -290,37 +376,37 @@ bool RocketConfig::StrCmp(char *string1, const char *string2, int length){
   return false;
 }
 
-void RocketConfig::DisplayConfigSettingsMenu(UART_HandleTypeDef *huart2){
+void RocketConfig::DisplayConfigSettingsMenu(){
   int uart_line_len = 0;
   uart_line_len = MakeLine(uart_line_, clear_screen_, config_menu_intro_, crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, deploy_mode_text_, DeployModeString(deploy_mode_), crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, launch_detect_altitude_text_, ToStr(launch_detect_altitude_, false), crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, drogue_primary_deploy_delay_text_, ToStr(drogue_primary_deploy_delay_, true), crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, drogue_backup_deploy_delay_text_, ToStr(drogue_backup_deploy_delay_, true), crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, main_primary_deploy_altitude_text_, ToStr(main_primary_deploy_altitude_, false), crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, main_backup_deploy_altitude_text_, ToStr(main_backup_deploy_altitude_, false), crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, deploy_signal_duration_text_, ToStr(deploy_signal_duration_, true), crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, lora_channel_text_, ToStr(lora_channel_, false));
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, crlf_, crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
 }
 
-void RocketConfig::DisplayDataMenu(UART_HandleTypeDef *huart2){
-  int uart_line_len = 0, line1_len = 0, line2_len = 0, line3_len = 0;
+void RocketConfig::DisplayDataMenu(){
+  int uart_line_len = 0;
   char datetime[DATE_STRING_LENGTH] = {0};
   char archive_position[] = {'0', ')', ' ', 0};
   uart_line_len = MakeLine(uart_line_, clear_screen_, data_menu_intro_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
-  HAL_UART_Transmit(huart2, (uint8_t*)data_menu_header_, strlen(data_menu_header_), UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)data_menu_header_, strlen(data_menu_header_), UART_TIMEOUT);
   for (int i = 0; i < ARCHIVE_POSITIONS; i++){
     rocket_file_.ReadFlightMetadata(i, &flight_stats_);
     if (flight_stats_.max_altitude > flight_stats_.launch_detect_altitude && flight_stats_.max_altitude > flight_stats_.landing_altitude
@@ -332,16 +418,27 @@ void RocketConfig::DisplayDataMenu(UART_HandleTypeDef *huart2){
       itoa(int(flight_stats_.max_altitude), apogee, 10);
       char time_to_apogee[7];
       FloatToCharArray(time_to_apogee, (float)flight_stats_.max_altitude_sample_count / SAMPLES_PER_SECOND, sizeof(time_to_apogee), 2);
-      line1_len = MakeLine(uart_line_, archive_position, datetime, " ");
-      line2_len = MakeLine(uart_line_ + line1_len, apogee, "        ", time_to_apogee);
-      line3_len = MakeLine(uart_line_ + line1_len + line2_len, crlf_);
-      HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, line1_len + line2_len + line3_len, UART_TIMEOUT);
+      uart_line_len = MakeLine(uart_line_, archive_position, datetime, " ");
+      uart_line_len += MakeLine(uart_line_ + uart_line_len, apogee, "           ") - strlen(apogee);
+      uart_line_len += MakeLine(uart_line_ + uart_line_len, time_to_apogee);
+      uart_line_len += MakeLine(uart_line_ + uart_line_len, crlf_);
+      HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
     }
     else
       rocket_file_.SetValidArchivePosition(i, false);
   }
   uart_line_len = MakeLine(uart_line_, data_guidance_text_, crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+}
+
+void RocketConfig::DisplayTestMenu(){
+  int uart_line_len = 0;
+  uart_line_len = MakeLine(uart_line_, clear_screen_, test_menu_intro_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)test_deploy1_text_, strlen(test_deploy1_text_), UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)test_deploy2_text_, strlen(test_deploy2_text_), UART_TIMEOUT);
+  uart_line_len = MakeLine(uart_line_, test_guidance_text_, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
 }
 
 const char* RocketConfig::DeployModeString(DeployMode deploy_mode_value){
@@ -362,17 +459,16 @@ const char* RocketConfig::DeployModeString(DeployMode deploy_mode_value){
   return "\0";
 }
 
-void RocketConfig::AdjustConfigSetting(UART_HandleTypeDef *huart2, uint8_t uart_char
-    , int *config_mode_setting, int max_setting_value, bool tenths){
+void RocketConfig::AdjustConfigSetting(uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths){
   int uart_line_len = 0;
   switch (uart_char){
   case 13: // Enter key
     user_interaction_state_ = UserInteractionState::kConfigHome;
-    DisplayConfigSettingsMenu(huart2);
+    DisplayConfigSettingsMenu();
     break;
   case 27: // Esc key
     user_interaction_state_ = UserInteractionState::kConfigHome;
-    DisplayConfigSettingsMenu(huart2);
+    DisplayConfigSettingsMenu();
     break;
   case 91: // [ = decrease value
     if (*config_mode_setting > 0)
@@ -385,14 +481,14 @@ void RocketConfig::AdjustConfigSetting(UART_HandleTypeDef *huart2, uint8_t uart_
   }
   if (uart_char == 91 || uart_char == 93){
     uart_line_len = MakeLine(uart_line_, cr_, ToStr(*config_mode_setting, tenths));
-    HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+    HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   }
 }
 
-void RocketConfig::ExportData(UART_HandleTypeDef *huart2, uint8_t archive_position){
+void RocketConfig::ExportData(uint8_t archive_position){
   int uart_line_len = 0;
   uart_line_len = MakeLine(uart_line_, clear_screen_, export_header_text_, crlf_);
-  HAL_UART_Transmit(huart2, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   rocket_file_.ReadFlightMetadata(archive_position, &flight_stats_);
   int sample_index = 0;
   char datetime[DATE_STRING_LENGTH] = {0};
@@ -417,7 +513,7 @@ void RocketConfig::ExportData(UART_HandleTypeDef *huart2, uint8_t archive_positi
     }
     else
       uart_line_len = MakeCSVExportLine(export_line, datetime, s_agl);
-    HAL_UART_Transmit(huart2, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+    HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
     sample_index++;
   }
 }
@@ -460,16 +556,38 @@ void RocketConfig::MakeDateTime(char *target, int date, int time, int sample_cou
 }
 
 void RocketConfig::FloatToCharArray(char *target, float source, uint8_t size, uint8_t fraction_digits){
-  if (source >= 0)
-    itoa(int(source), target, 10);
-  else{
+  uint8_t char_pos = 0;
+  if (source > -1 && source < 0){
     target[0] = '-';
-    itoa(int(source), target + 1, 10);
+    char_pos++;
   }
+  itoa(int(source), target + char_pos, 10);
   uint8_t i = 0;
-  for (i = 0; target[i] != 0 && i < sizeof(target); i++);
+  for (; target[i] != 0 && i < sizeof(target); i++);
   if (i < size - fraction_digits){
     target[i] = '.';
     itoa(abs(int((source - int(source)) * pow(10, fraction_digits))), &target[i + 1], 10);
   }
+}
+
+void RocketConfig::DisplayDfuMenu(){
+  int uart_line_len = MakeLine(uart_line_, clear_screen_, uart_line_, dfu_intro_);
+  uart_line_len += MakeLine(uart_line_ + uart_line_len, dfu_guidance_text_, dfu_warning_text_, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+}
+
+uint8_t RocketConfig::StartBootloader(){
+    FLASH_OBProgramInitTypeDef ob_cfg;
+    HAL_FLASHEx_OBGetConfig(&ob_cfg);
+    ob_cfg.OptionType = OPTIONBYTE_USER;
+
+    HAL_FLASH_Unlock();
+    HAL_FLASH_OB_Unlock();
+    ob_cfg.UserType = OB_USER_nBOOT0 | OB_USER_nBOOT1 | OB_USER_nSWBOOT0;
+    ob_cfg.UserConfig =  OB_BOOT0_RESET | OB_BOOT1_SET | OB_BOOT0_FROM_OB;
+    HAL_FLASHEx_OBProgram(&ob_cfg);
+    HAL_FLASH_OB_Launch();
+    HAL_FLASH_OB_Lock();
+    HAL_FLASH_Lock();
+    return 0;
 }

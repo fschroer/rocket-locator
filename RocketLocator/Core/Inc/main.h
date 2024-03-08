@@ -88,6 +88,10 @@ void Error_Handler(void);
 #define LED2_GPIO_Port GPIOA
 #define LED1_Pin GPIO_PIN_8
 #define LED1_GPIO_Port GPIOA
+#define EMATCH_SENSE_1_Pin GPIO_PIN_4
+#define EMATCH_SENSE_1_GPIO_Port GPIOB
+#define EMATCH_SENSE_2_Pin GPIO_PIN_10
+#define EMATCH_SENSE_2_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

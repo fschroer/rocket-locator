@@ -58,7 +58,7 @@ void FlightManager::FlightService(){
 }
 
 void FlightManager::IncrementFlightDataQueue(){
-  if (flight_stats_->flight_state < flightStates::kLanded){
+  if (flight_stats_->flight_state < FlightStates::kLanded){
     flight_stats_->test_data_sample_count++;
     for (int i = 0; i < FLIGHT_DATA_ARRAY_SIZE - 1; i++){
       flight_stats_->agl[i] = flight_stats_->agl[i + 1];
@@ -73,7 +73,7 @@ void FlightManager::IncrementFlightDataQueue(){
 void FlightManager::GetAGL(){
   Bmp280ReadFloat(&bmp280_, &temperature_, &pressure_, &humidity_);
   sensor_altitude_ = (44330 * (1.0 - pow(pressure_ / 101325, 0.1903)));
-  if (flight_stats_->flight_state == flightStates::kWaitingLaunch && g_force_short_sample_ < MAX_AGL_ADJUST_G_FORCE){
+  if (flight_stats_->flight_state == FlightStates::kWaitingLaunch && g_force_short_sample_ < MAX_AGL_ADJUST_G_FORCE){
     if (agl_adjust_count_ == 0){
       flight_stats_->agl_adjust = sensor_altitude_;
     }
@@ -91,17 +91,17 @@ void FlightManager::GetAccelerometerData(){
   Accelerometer_t accelerometer;
   accelerometer_.UpdateAccelerometerValues(&accelerometer);
   if (TEST){
-    if (flight_stats_->flight_state == flightStates::kWaitingLaunch && flight_stats_->sample_count > 5){
+    if (flight_stats_->flight_state == FlightStates::kWaitingLaunch && flight_stats_->sample_count > 5){
       accelerometer.x = 4300;
       accelerometer.y = 0;
       accelerometer.z = 0;
     }
-    else if (flight_stats_->flight_state >= flightStates::kLaunched && flight_stats_->sample_count > 60){
+    else if (flight_stats_->flight_state >= FlightStates::kLaunched && flight_stats_->sample_count > 60){
       accelerometer.x = 100;
       accelerometer.y = 0;
       accelerometer.z = 0;
     }
-    else if (flight_stats_->flight_state >= flightStates::kDroguePrimaryDeployed){
+    else if (flight_stats_->flight_state >= FlightStates::kDroguePrimaryDeployed){
       accelerometer.x = 2048;
       accelerometer.y = 0;
       accelerometer.z = 0;
@@ -136,40 +136,46 @@ void FlightManager::GetAccelerometerData(){
 }
 
 void FlightManager::UpdateFlightState(){ // Update flight state
-  if (flight_stats_->flight_state == flightStates::kWaitingLaunch && flight_stats_->agl[flight_stats_->flight_data_array_index] > rocket_settings_->launch_detect_altitude // Detect launch
-      && velocity_short_sample_ > LAUNCH_VELOCITY && g_force_short_sample_ > LAUNCH_G_FORCE){ // Minimum altitude, velocity, acceleration
+  if (flight_stats_->flight_state == FlightStates::kWaitingLaunch && flight_stats_->agl[flight_stats_->flight_data_array_index] > rocket_settings_->launch_detect_altitude // Detect launch
+      && velocity_short_sample_ > LAUNCH_VELOCITY// && g_force_short_sample_ > LAUNCH_G_FORCE
+      ){ // Minimum altitude, velocity, acceleration
     ResetFlightStats(true);
-    flight_stats_->flight_state = flightStates::kLaunched;
+    flight_stats_->flight_state = FlightStates::kLaunched;
     flight_stats_->launch_detect_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
     flight_stats_->launch_detect_sample_count = flight_stats_->sample_count;
     flight_stats_->g_range_scale = accelerometer_.GetGRangeScale();
     //APP_LOG(TS_OFF, VLEVEL_M, "\r\nLaunch: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
   }
 
-  if (flight_stats_->flight_state >= flightStates::kLaunched && flight_stats_->flight_state < flightStates::kNoseover){
+  if (flight_stats_->flight_state >= FlightStates::kLaunched && flight_stats_->flight_state < FlightStates::kNoseover){
     updateMaxAltitude();
-    if (g_force_short_sample_ < 0.5)
+    if (g_force_short_sample_ > 3.0)
+      accelerometer_state_ = AccelerometerStates::kAcceleration;
+    else if (g_force_short_sample_ < 1.0)
+      accelerometer_state_ = AccelerometerStates::kDeceleration;
+    if (accelerometer_state_ != AccelerometerStates::kAcceleration){
       if (flight_stats_->burnout_sample_count == 0){ // Detect burnout
-        flight_stats_->flight_state = flightStates::kBurnout;
+        flight_stats_->flight_state = FlightStates::kBurnout;
         flight_stats_->burnout_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
         flight_stats_->burnout_sample_count = flight_stats_->sample_count;
       }
-    float sum1 = 0.0, sum2 = 0.0; // Detect nose over
-    for (int i = flight_stats_->flight_data_array_index - SAMPLES_PER_SECOND + 1; i < flight_stats_->flight_data_array_index - SAMPLES_PER_SECOND / 2 + 1; i++){
-      sum1 += flight_stats_->agl[i];
-      sum2 += flight_stats_->agl[i + SAMPLES_PER_SECOND / 2];
-    }
-    if (sum2 <= sum1){
-      noseover_time_ = 0;
-      flight_stats_->nose_over_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
-      flight_stats_->nose_over_sample_count = flight_stats_->sample_count;
-      flight_stats_->flight_state = flightStates::kNoseover;
-      //APP_LOG(TS_OFF, VLEVEL_M, "\r\nNoseover: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
+      float sum1 = 0.0, sum2 = 0.0; // Detect nose over
+      for (int i = flight_stats_->flight_data_array_index - SAMPLES_PER_SECOND + 1; i < flight_stats_->flight_data_array_index - SAMPLES_PER_SECOND / 2 + 1; i++){
+        sum1 += flight_stats_->agl[i];
+        sum2 += flight_stats_->agl[i + SAMPLES_PER_SECOND / 2];
+      }
+      if (sum2 <= sum1){
+        noseover_time_ = 0;
+        flight_stats_->nose_over_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
+        flight_stats_->nose_over_sample_count = flight_stats_->sample_count;
+        flight_stats_->flight_state = FlightStates::kNoseover;
+        //APP_LOG(TS_OFF, VLEVEL_M, "\r\nNoseover: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
+      }
     }
   }
 
-  if (flight_stats_->flight_state >= flightStates::kNoseover){
-    if (flight_stats_->flight_state < flightStates::kDroguePrimaryDeployed
+  if (flight_stats_->flight_state >= FlightStates::kNoseover){
+    if (flight_stats_->flight_state < FlightStates::kDroguePrimaryDeployed
         && noseover_time_ >= SAMPLES_PER_SECOND * rocket_settings_->drogue_primary_deploy_delay / 10){ // Deploy drogue primary
       if (rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryDrogueBackup || rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryMainPrimary){
         deploy_1_time_ = 0;
@@ -177,10 +183,10 @@ void FlightManager::UpdateFlightState(){ // Update flight state
       }
       flight_stats_->drogue_primary_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->drogue_primary_deploy_sample_count = flight_stats_->sample_count;
-      flight_stats_->flight_state = flightStates::kDroguePrimaryDeployed;
+      flight_stats_->flight_state = FlightStates::kDroguePrimaryDeployed;
     }
 
-    if (flight_stats_->flight_state < flightStates::kDrogueBackupDeployed
+    if (flight_stats_->flight_state < FlightStates::kDrogueBackupDeployed
         && noseover_time_ >= SAMPLES_PER_SECOND * rocket_settings_->drogue_backup_deploy_delay / 10){ // Deploy drogue backup
       if (rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryDrogueBackup){
         deploy_2_time_ = 0;
@@ -192,11 +198,12 @@ void FlightManager::UpdateFlightState(){ // Update flight state
       }
       flight_stats_->drogue_backup_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->drogue_backup_deploy_sample_count = flight_stats_->sample_count;
-      flight_stats_->flight_state = flightStates::kDrogueBackupDeployed;
+      flight_stats_->flight_state = FlightStates::kDrogueBackupDeployed;
     }
 
-    if (flight_stats_->flight_state < flightStates::kMainPrimaryDeployed
-        && flight_stats_->agl[flight_stats_->flight_data_array_index] <= rocket_settings_->main_primary_deploy_altitude){ // Deploy main primary
+    if (flight_stats_->flight_state < FlightStates::kMainPrimaryDeployed
+        && (flight_stats_->agl[flight_stats_->flight_data_array_index] <= rocket_settings_->main_primary_deploy_altitude
+            || velocity_short_sample_ > FREE_FALL_THRESHOLD)){ // Deploy main primary
       if (rocket_settings_->deploy_mode == DeployMode::kMainPrimaryMainBackup){
         deploy_1_time_ = 0;
         HAL_GPIO_WritePin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin, GPIO_PIN_SET);
@@ -205,18 +212,19 @@ void FlightManager::UpdateFlightState(){ // Update flight state
         deploy_2_time_ = 0;
         HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_SET);
       }
-      flight_stats_->flight_state = flightStates::kMainPrimaryDeployed;
+      flight_stats_->flight_state = FlightStates::kMainPrimaryDeployed;
       flight_stats_->main_primary_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->main_primary_deploy_sample_count = flight_stats_->sample_count;
     }
 
-    if (flight_stats_->flight_state < flightStates::kMainBackupDeployed
-        && flight_stats_->agl[flight_stats_->flight_data_array_index] <= rocket_settings_->main_backup_deploy_altitude){ // Deploy main backup
+    if (flight_stats_->flight_state < FlightStates::kMainBackupDeployed
+        && (flight_stats_->agl[flight_stats_->flight_data_array_index] <= rocket_settings_->main_backup_deploy_altitude
+            || velocity_short_sample_ > FREE_FALL_THRESHOLD)){ // Deploy main backup
       if (rocket_settings_->deploy_mode == DeployMode::kMainPrimaryMainBackup || rocket_settings_->deploy_mode == DeployMode::kDrogueBackupMainBackup){
         deploy_2_time_ = 0;
         HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_SET);
       }
-      flight_stats_->flight_state = flightStates::kMainBackupDeployed;
+      flight_stats_->flight_state = FlightStates::kMainBackupDeployed;
       flight_stats_->main_backup_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->main_backup_deploy_sample_count = flight_stats_->sample_count;
     }
@@ -235,9 +243,9 @@ void FlightManager::UpdateFlightState(){ // Update flight state
     deploy_2_time_++;
   }
 
-  if (flight_stats_->flight_state >= flightStates::kNoseover && flight_stats_->flight_state < flightStates::kLanded){ // Landing
+  if (flight_stats_->flight_state >= FlightStates::kNoseover && flight_stats_->flight_state < FlightStates::kLanded){ // Landing
     if (abs(velocity_long_sample_) < DESCENT_RATE_THRESHOLD && flight_stats_->agl[flight_stats_->flight_data_array_index] < MAX_LANDING_ALTITUDE){
-      flight_stats_->flight_state = flightStates::kLanded;
+      flight_stats_->flight_state = FlightStates::kLanded;
       flight_stats_->landing_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->landing_sample_count = flight_stats_->sample_count;
     }
@@ -246,7 +254,7 @@ void FlightManager::UpdateFlightState(){ // Update flight state
 }
 
 void FlightManager::UpdateVelocity(){
-  if (flight_stats_->flight_state < flightStates::kLanded && flight_stats_->flight_data_array_index >= VELOCITY_SAMPLES_LONG - 1){
+  if (flight_stats_->flight_state < FlightStates::kLanded && flight_stats_->flight_data_array_index >= VELOCITY_SAMPLES_LONG - 1){
     float sampleTimeShort = (1.0 - VELOCITY_SAMPLES_SHORT) / (SAMPLES_PER_SECOND * 2);
   	velocity_short_sample_ = 0.0;
     for (int i = flight_stats_->flight_data_array_index - VELOCITY_SAMPLES_SHORT + 1; i <= flight_stats_->flight_data_array_index; i++){

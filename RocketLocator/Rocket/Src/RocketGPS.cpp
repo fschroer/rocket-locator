@@ -13,15 +13,9 @@ void RocketGPS::Begin(){
 }
 
 void RocketGPS::ProcessGgaSentence(){
-  uint8_t checksum = 0;
+  calculated_checksum_ = 0;
   bool checksumCaptureActive = false;
-  telemetry_data_.time_stamp = 0;
-  telemetry_data_.latitude = 0.0;
-  telemetry_data_.longitude = 0.0;
-  telemetry_data_.q_ind = 0;
-  telemetry_data_.satellites = 0;
-  telemetry_data_.hdop = 0.0;
-  telemetry_data_.altitude = 0.0;
+  ResetTelemetryData();
   int i = 0, iPrev = 0, field = 0;
   while (i < gga_sentence_length_){
     if (gga_sentence_[i] == ','){
@@ -82,17 +76,17 @@ void RocketGPS::ProcessGgaSentence(){
       iPrev = i;
       field++;
     }
-    if (gga_sentence_[i] == '*'){
+    if (gga_sentence_[i] == '*')
       checksumCaptureActive = false;
-      checksum ^= gga_sentence_[i - 1];
-    }
     if (checksumCaptureActive)
-      checksum ^= gga_sentence_[i];
+      calculated_checksum_ ^= gga_sentence_[i];
     if (gga_sentence_[i] == '$')
       checksumCaptureActive = true;
     i++;
   }
   memcpy(telemetry_data_.checksum, &gga_sentence_[iPrev + 1 + (telemetry_data_.q_ind == '2' ? 4 : 0)], GPS_SENTENCE_CHECKSUM_LEN);
+  gps_checksum_ = (telemetry_data_.checksum[1] <= '9' ? telemetry_data_.checksum[1] - '0' : telemetry_data_.checksum[1] - 55) * 16
+      + (telemetry_data_.checksum[2] <= '9' ? telemetry_data_.checksum[2] - '0' : telemetry_data_.checksum[2] - 55);
 }
 
 void RocketGPS::ProcessRmcSentence(){
@@ -113,7 +107,22 @@ void RocketGPS::ProcessRmcSentence(){
   }
 }
 
+void RocketGPS::ResetTelemetryData(){
+  telemetry_data_.time_stamp = 0;
+  telemetry_data_.latitude = 0.0;
+  telemetry_data_.longitude = 0.0;
+  telemetry_data_.q_ind = 0;
+  telemetry_data_.satellites = 0;
+  telemetry_data_.hdop = 0.0;
+  telemetry_data_.altitude = 0.0;
+  telemetry_data_.checksum[0] = 0;
+  telemetry_data_.checksum[1] = 0;
+  telemetry_data_.checksum[2] = 0;
+}
+
 void RocketGPS::ProcessChar(uint8_t gps_char){
+  if (gps_char == '$')
+    gps_msg_buffer_index_ = 0;
   if ((gps_msg_buffer_[gps_msg_buffer_index_++] = gps_char) == '\n'){
     if (strncmp((char*)gps_msg_buffer_ + 3, "GGA", GPS_SENTENCE_TYPE_LEN - 3) == 0){
       memcpy(gga_sentence_, gps_msg_buffer_, RX_BUFFER_SIZE);
@@ -155,4 +164,8 @@ int RocketGPS::GetTime(){
 
 bool RocketGPS::GPSDatestampValid(){
   return gps_date_valid_ && gps_time_valid_;
+}
+
+bool RocketGPS::GPSDataValid(){
+  return calculated_checksum_ == gps_checksum_;
 }

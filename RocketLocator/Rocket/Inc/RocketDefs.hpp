@@ -15,7 +15,8 @@
 enum DeviceState{
   kRunning = 0,
   kConfig,
-  kConfigSavePending
+  kConfigSavePending,
+  kTest
 };
 
 enum DeployMode
@@ -26,7 +27,7 @@ enum DeployMode
   kDrogueBackupMainBackup = 4
 };
 
-enum flightStates
+enum FlightStates
 {
   kWaitingLaunch = 0,
   kLaunched = 1,
@@ -37,6 +38,13 @@ enum flightStates
   kMainPrimaryDeployed = 6,
   kMainBackupDeployed = 7,
   kLanded = 8
+};
+
+enum AccelerometerStates
+{
+  kAtRest = 0,
+  kAcceleration = 1,
+  kDeceleration = 2,
 };
 
 struct RocketSettings {
@@ -74,7 +82,7 @@ struct FlightStats {
   int landing_sample_count = 0;
   int sample_count = 0;
   float g_range_scale = 0;
-  uint8_t flight_state = flightStates::kWaitingLaunch;
+  uint8_t flight_state = FlightStates::kWaitingLaunch;
   float agl_adjust = 0.0;
   int flight_data_array_index = 0;
   uint16_t test_data_sample_count = 0;
