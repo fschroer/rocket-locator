@@ -105,7 +105,7 @@ void RocketFactory::ProcessRocketEvents(){
 
 void RocketFactory::SendTelemetryData(){
   if (rocket_gps_.GPSDataValid()){
-    rocket_gps_.SetFlightState(flight_stats_.flight_state);
+    rocket_gps_.SetFlightState(flight_stats_.flight_state, flight_stats_.sample_count);
     uint8_t telemetry_data_size = rocket_gps_.TelemetryDataSize();
     uint8_t agl_data_size;
     if (flight_stats_.flight_state > FlightStates::kWaitingLaunch && flight_stats_.flight_state < FlightStates::kDroguePrimaryDeployed)

@@ -49,16 +49,20 @@ int main(void){
   LL_USART_EnableIT_ERROR(USART2);
   HAL_Delay(500);
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-  rocket_factory_.Begin();
+  //rocket_factory_.Begin();
   UTIL_TIMER_Create(&peripheral_service_timer_, MILLIS_PER_SECOND / SAMPLES_PER_SECOND, UTIL_TIMER_PERIODIC, OnPeripheralServiceTimer, NULL);
   UTIL_TIMER_Start(&peripheral_service_timer_);
-
+int i = 0;
   while (1){
   	if (peripheral_service_interrupts_ > 0){
   		peripheral_service_interrupts_--;
   		m_rocket_service_state = 1;
-  		rocket_factory_.ProcessRocketEvents();
+  		//rocket_factory_.ProcessRocketEvents();
   		m_rocket_service_state = 0;
+  		if (i++ == 20){
+  		  i = 0;
+  		  Radio.Send((uint8_t*)"Test",4);
+  		}
   	}
   }
 }

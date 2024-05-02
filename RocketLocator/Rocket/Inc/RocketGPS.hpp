@@ -22,7 +22,8 @@ struct __attribute__ ((packed)) Telemetry {
   float hdop;
   float altitude;
   char checksum[GPS_SENTENCE_CHECKSUM_LEN] = {0};
-  uint8_t flight_state = FlightStates::kWaitingLaunch;
+  FlightStates flight_state = FlightStates::kWaitingLaunch;
+  int sample_count;
 };
 
 class RocketGPS{
@@ -34,7 +35,7 @@ public:
   void ProcessChar(uint8_t gps_char);
   void GgaToPacket(uint8_t *packet);
   uint8_t TelemetryDataSize();
-  void SetFlightState(uint8_t flight_state);
+  void SetFlightState(FlightStates flight_state, int sample_count);
   int GetDate();
   int GetTime();
   bool GPSDatestampValid();

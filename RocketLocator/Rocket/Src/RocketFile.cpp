@@ -58,7 +58,7 @@ HAL_StatusTypeDef RocketFile::WriteFlightMetadata(FlightStats *flight_stats){
 }
 
 HAL_StatusTypeDef RocketFile::WriteAltimeterSample(float agl){
-  uint16_t int16_agl = int(agl);
+  uint16_t int16_agl = int(agl * ALTIMETER_SCALE);
   if (!MaxAltimeterArchiveSampleIndex(altimeter_data_archive_base_address_, altimeter_data_archive_address_)){
     memcpy((uint8_t *)altimeter_data_buffer_ + altimeter_data_buffer_index_, &int16_agl, sizeof(int16_agl));
     altimeter_data_buffer_index_ += sizeof(int16_agl);
@@ -109,12 +109,12 @@ void RocketFile::ReadFlightMetadata(uint8_t archive_position, FlightStats *fligh
     *((uint8_t *)flight_stats + i) = *((uint8_t *)address + i);
 }
 
-bool RocketFile::ReadAltimeterData(uint8_t archive_position, int sample_index, int max_sample_index, uint16_t *agl){
+bool RocketFile::ReadAltimeterData(uint8_t archive_position, int sample_index, int max_sample_index, float *agl){
   altimeter_data_archive_base_address_ = ALTIMETER_DATA_BASE_ADDRESS + archive_position * ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
   uint32_t address = altimeter_data_archive_base_address_ + sample_index * sizeof(uint16_t);
 
   if (sample_index < max_sample_index && !MaxAltimeterArchiveSampleIndex(altimeter_data_archive_base_address_, address)){
-    *agl = *(uint16_t *)address;
+    *agl = (float)*(uint16_t *)address / ALTIMETER_SCALE;
     return true;
   }
   return false;

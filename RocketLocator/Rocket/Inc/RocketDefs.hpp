@@ -11,6 +11,7 @@
 #define MAX_LORA_CHANNEL 63
 #define UART_TIMEOUT 5000
 #define CENTURY 100
+#define ALTIMETER_SCALE 10
 
 enum DeviceState{
   kRunning = 0,
@@ -82,7 +83,7 @@ struct FlightStats {
   int landing_sample_count = 0;
   int sample_count = 0;
   float g_range_scale = 0;
-  uint8_t flight_state = FlightStates::kWaitingLaunch;
+  FlightStates flight_state = FlightStates::kWaitingLaunch;
   float agl_adjust = 0.0;
   int flight_data_array_index = 0;
   uint16_t test_data_sample_count = 0;

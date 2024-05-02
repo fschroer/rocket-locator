@@ -119,7 +119,8 @@ void SubghzApp_Init(void)
 
   /* USER CODE BEGIN SubghzApp_Init_2 */
   /* Radio Set frequency */
-  Radio.SetChannel(902000000); //Saved config frequency set in RocketFactory.
+  //Radio.SetChannel(902000000); //Saved config frequency set in RocketFactory.
+  Radio.SetChannel(902500000); //Saved config frequency set in RocketFactory.
 
   /* Radio configuration *//*
   APP_LOG(TS_OFF, VLEVEL_M, "---------------\n\r");
@@ -161,6 +162,10 @@ static void OnTxDone(void)
 static void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t LoraSnr_FskCfo)
 {
   /* USER CODE BEGIN OnRxDone */
+  uint16_t p_size = size;
+  char payload_char;
+  for (int i = 0; i < p_size; i++)
+    payload_char = payload[i];
   /* USER CODE END OnRxDone */
 }
 

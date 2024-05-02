@@ -150,8 +150,9 @@ uint8_t RocketGPS::TelemetryDataSize(){
   return sizeof(telemetry_data_);
 }
 
-void RocketGPS::SetFlightState(uint8_t flight_state){
+void RocketGPS::SetFlightState(FlightStates flight_state, int sample_count){
   telemetry_data_.flight_state = flight_state;
+  telemetry_data_.sample_count = sample_count;
 }
 
 int RocketGPS::GetDate(){

@@ -486,23 +486,26 @@ void RocketConfig::AdjustConfigSetting(uint8_t uart_char, int *config_mode_setti
 }
 
 void RocketConfig::ExportData(uint8_t archive_position){
+  ExportFlightStats();
+  char export_line[255];
   int uart_line_len = 0;
   uart_line_len = MakeLine(uart_line_, clear_screen_, export_header_text_, crlf_);
   HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   rocket_file_.ReadFlightMetadata(archive_position, &flight_stats_);
+
   int sample_index = 0;
   char datetime[DATE_STRING_LENGTH] = {0};
-  uint16_t agl = 0;
+  float agl = 0;
   char s_agl[ALTIMETER_STRING_LENGTH] = {0};
   Accelerometer_t accelerometer;
   char x_accel[ACCELEROMETER_STRING_LENGTH] = {0};
   char y_accel[ACCELEROMETER_STRING_LENGTH] = {0};
   char z_accel[ACCELEROMETER_STRING_LENGTH] = {0};
   bool accelerometer_data_present = true;
-  char export_line[255];
+
   while (rocket_file_.ReadAltimeterData(archive_position, sample_index, flight_stats_.landing_sample_count, &agl)){
     MakeDateTime(datetime, flight_stats_.launch_date, flight_stats_.launch_time, sample_index, true, true);
-    itoa(agl, s_agl, 10);
+    FloatToCharArray(s_agl, agl, ALTIMETER_STRING_LENGTH, 1);
     accelerometer_data_present = rocket_file_.ReadAccelerometerData(archive_position, sample_index
         , flight_stats_.drogue_primary_deploy_sample_count, &accelerometer);
     if (accelerometer_data_present){
@@ -516,6 +519,66 @@ void RocketConfig::ExportData(uint8_t archive_position){
     HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
     sample_index++;
   }
+}
+
+void RocketConfig::ExportFlightStats(){ //Export flight statistics
+  int uart_line_len = 0;
+  char export_line[255];
+  char flight_stat[10];
+  char sample_count[10];
+  FloatToCharArray(flight_stat, flight_stats_.max_altitude, ALTIMETER_STRING_LENGTH, 1);
+  uart_line_len = MakeLine(export_line, max_altitude_text, flight_stat, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  uart_line_len = MakeLine(export_line, max_altitude_sample_count_text, itoa(flight_stats_.max_altitude_sample_count, sample_count, 10), crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+
+  FloatToCharArray(flight_stat, flight_stats_.launch_detect_altitude, ALTIMETER_STRING_LENGTH, 1);
+  uart_line_len = MakeLine(export_line, launch_detect_altitude_text, flight_stat, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  uart_line_len = MakeLine(export_line, launch_detect_sample_count_text, itoa(flight_stats_.launch_detect_sample_count, sample_count, 10), crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+
+  FloatToCharArray(flight_stat, flight_stats_.burnout_altitude, ALTIMETER_STRING_LENGTH, 1);
+  uart_line_len = MakeLine(export_line, burnout_altitude_text, flight_stat, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  uart_line_len = MakeLine(export_line, burnout_sample_count_text, itoa(flight_stats_.burnout_sample_count, sample_count, 10), crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+
+  FloatToCharArray(flight_stat, flight_stats_.nose_over_altitude, ALTIMETER_STRING_LENGTH, 1);
+  uart_line_len = MakeLine(export_line, nose_over_altitude_text, flight_stat, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  uart_line_len = MakeLine(export_line, nose_over_sample_count_text, itoa(flight_stats_.nose_over_sample_count, sample_count, 10), crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+
+  FloatToCharArray(flight_stat, flight_stats_.drogue_primary_deploy_altitude, ALTIMETER_STRING_LENGTH, 1);
+  uart_line_len = MakeLine(export_line, drogue_primary_deploy_altitude_text, flight_stat, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  uart_line_len = MakeLine(export_line, drogue_primary_deploy_sample_count_text, itoa(flight_stats_.drogue_primary_deploy_sample_count, sample_count, 10), crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+
+  FloatToCharArray(flight_stat, flight_stats_.drogue_backup_deploy_altitude, ALTIMETER_STRING_LENGTH, 1);
+  uart_line_len = MakeLine(export_line, drogue_backup_deploy_altitude_text, flight_stat, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  uart_line_len = MakeLine(export_line, drogue_backup_deploy_sample_count_text, itoa(flight_stats_.drogue_backup_deploy_sample_count, sample_count, 10), crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+
+  FloatToCharArray(flight_stat, flight_stats_.main_primary_deploy_altitude, ALTIMETER_STRING_LENGTH, 1);
+  uart_line_len = MakeLine(export_line, main_primary_deploy_altitude_text, flight_stat, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  uart_line_len = MakeLine(export_line, main_primary_deploy_sample_count_text, itoa(flight_stats_.main_primary_deploy_sample_count, sample_count, 10), crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+
+  FloatToCharArray(flight_stat, flight_stats_.main_backup_deploy_altitude, ALTIMETER_STRING_LENGTH, 1);
+  uart_line_len = MakeLine(export_line, main_backup_deploy_altitude_text, flight_stat, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  uart_line_len = MakeLine(export_line, main_backup_deploy_sample_count_text, itoa(flight_stats_.main_backup_deploy_sample_count, sample_count, 10), crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+
+  FloatToCharArray(flight_stat, flight_stats_.landing_altitude, ALTIMETER_STRING_LENGTH, 1);
+  uart_line_len = MakeLine(export_line, landing_altitude_text, flight_stat, crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  uart_line_len = MakeLine(export_line, landing_sample_count_text, itoa(flight_stats_.landing_sample_count, sample_count, 10), crlf_);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
 }
 
 void RocketConfig::MakeDateTime(char *target, int date, int time, int sample_count, bool time_zone_adjust, bool fractional){
@@ -580,14 +643,14 @@ uint8_t RocketConfig::StartBootloader(){
     FLASH_OBProgramInitTypeDef ob_cfg;
     HAL_FLASHEx_OBGetConfig(&ob_cfg);
     ob_cfg.OptionType = OPTIONBYTE_USER;
+    ob_cfg.UserType = OB_USER_nBOOT0 | OB_USER_nBOOT1 | OB_USER_nSWBOOT0;
+    ob_cfg.UserConfig =  OB_BOOT0_RESET | OB_BOOT1_SET | OB_BOOT0_FROM_OB;
 
     HAL_FLASH_Unlock();
     HAL_FLASH_OB_Unlock();
-    ob_cfg.UserType = OB_USER_nBOOT0 | OB_USER_nBOOT1 | OB_USER_nSWBOOT0;
-    ob_cfg.UserConfig =  OB_BOOT0_RESET | OB_BOOT1_SET | OB_BOOT0_FROM_OB;
     HAL_FLASHEx_OBProgram(&ob_cfg);
-    HAL_FLASH_OB_Launch();
-    HAL_FLASH_OB_Lock();
-    HAL_FLASH_Lock();
+//    HAL_FLASH_OB_Launch();
+//    HAL_FLASH_OB_Lock();
+//    HAL_FLASH_Lock();
     return 0;
 }

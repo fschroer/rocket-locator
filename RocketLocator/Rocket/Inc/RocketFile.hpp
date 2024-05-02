@@ -27,7 +27,7 @@ public:
   HAL_StatusTypeDef WriteAltimeterSample(float agl);
   HAL_StatusTypeDef CloseAltimeterArchive();
   void ReadFlightMetadata(uint8_t archive_position, FlightStats *flight_stats);
-  bool ReadAltimeterData(uint8_t archive_position, int sample_count, int max_sample_count, uint16_t *agl);
+  bool ReadAltimeterData(uint8_t archive_position, int sample_count, int max_sample_count, float *agl);
   bool MaxAltimeterArchiveSampleIndex(uint32_t altimeter_data_archive_address, uint32_t altimeter_data_archive_base_address);
   HAL_StatusTypeDef OpenAccelerometerArchiveWrite(uint8_t archive_position);
   HAL_StatusTypeDef WriteAccelerometerSample(Accelerometer_t *accelerometer);

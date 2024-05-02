@@ -11,7 +11,7 @@
 #define UART_LINE_MAX_LENGTH 255
 #define USER_INPUT_MAX_LENGTH 15
 #define DATE_STRING_LENGTH 23
-#define ALTIMETER_STRING_LENGTH 6
+#define ALTIMETER_STRING_LENGTH 7
 #define ACCELEROMETER_STRING_LENGTH 9
 
 enum UserInteractionState
@@ -97,6 +97,25 @@ private:
   const char* dfu_guidance_text_ = "Enter to continue, Esc to cancel\r\n\r\n\0";
   const char* dfu_warning_text_ = "Warning - device will stop working until reset by administrator\r\n\0";
 
+  const char* max_altitude_text = "Apogee: \0";
+  const char* max_altitude_sample_count_text = "Apogee time: \0";
+  const char* launch_detect_altitude_text = "Launch detect: \0";
+  const char* launch_detect_sample_count_text = "Launch detect time: \0";
+  const char* burnout_altitude_text = "Burnout: \0";
+  const char* burnout_sample_count_text = "Burnout time: \0";
+  const char* nose_over_altitude_text = "Noseover: \0";
+  const char* nose_over_sample_count_text = "Noseover time: \0";
+  const char* drogue_primary_deploy_altitude_text = "Drogue primary: \0";
+  const char* drogue_primary_deploy_sample_count_text = "Drogue primary time: \0";
+  const char* drogue_backup_deploy_altitude_text = "Drogue backup: \0";
+  const char* drogue_backup_deploy_sample_count_text = "Drogue backup time: \0";
+  const char* main_primary_deploy_altitude_text = "Main primary: \0";
+  const char* main_primary_deploy_sample_count_text = "Main primary time: \0";
+  const char* main_backup_deploy_altitude_text = "Main backup: \0";
+  const char* main_backup_deploy_sample_count_text = "Main backup time: \0";
+  const char* landing_altitude_text = "Landing: \0";
+  const char* landing_sample_count_text = "Landing time: \0";
+
   DeployMode deploy_mode_;
   int launch_detect_altitude_;
   int drogue_primary_deploy_delay_;
@@ -122,6 +141,7 @@ private:
   void DisplayDataMenu();
   void DisplayTestMenu();
   void ExportData(uint8_t archive_position);
+  void ExportFlightStats();
   void MakeDateTime(char *target, int date, int time, int sample_index, bool time_zone_adjust, bool fractional);
   void FloatToCharArray(char *target, float source, uint8_t size, uint8_t fraction_digits);
   void DisplayDfuMenu();
