@@ -74,7 +74,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
       uart_line_len = MakeLine(uart_line_, config_save_text_);
       break;
     case 27: // Esc key
-      *device_state_ = DeviceState::kRunning;
+      *device_state_ = DeviceState::kStandby;
       user_interaction_state_ = UserInteractionState::kWaitingForCommand;
       uart_line_len = MakeLine(uart_line_, cancel_text_);
       break;
@@ -186,7 +186,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
     if (uart_char >= '0' && uart_char <= '9' && rocket_file_.GetValidArchivePosition(uart_char - '0'))
         ExportData(uart_char - '0');
     else if (uart_char == 27){ // Esc key
-      *device_state_ = DeviceState::kRunning;
+      *device_state_ = DeviceState::kStandby;
       user_interaction_state_ = UserInteractionState::kWaitingForCommand;
       uart_line_len = MakeLine(uart_line_, cancel_text_);
       HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
@@ -204,7 +204,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
       test_deploy_count_ = 200;
     }
     else if (uart_char == 27){ // Esc key
-      *device_state_ = DeviceState::kRunning;
+      *device_state_ = DeviceState::kStandby;
       user_interaction_state_ = UserInteractionState::kWaitingForCommand;
       uart_line_len = MakeLine(uart_line_, cancel_text_);
       HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
@@ -213,7 +213,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
   case UserInteractionState::kTestDeploy1:
   case UserInteractionState::kTestDeploy2:
     if (uart_char == 27){ // Esc key
-      *device_state_ = DeviceState::kRunning;
+      *device_state_ = DeviceState::kStandby;
       user_interaction_state_ = UserInteractionState::kWaitingForCommand;
       uart_line_len = MakeLine(uart_line_, cancel_text_);
       HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
@@ -223,7 +223,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
     if (uart_char == 13) // Enter key
       StartBootloader();
     else if (uart_char == 27){ // Esc key
-      *device_state_ = DeviceState::kRunning;
+      *device_state_ = DeviceState::kStandby;
       user_interaction_state_ = UserInteractionState::kWaitingForCommand;
       uart_line_len = MakeLine(uart_line_, cancel_text_);
       HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
@@ -262,7 +262,7 @@ void RocketConfig::TestDeploy(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
   else if (HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) == GPIO_PIN_SET){
     if (test_deploy_count_ <= -SAMPLES_PER_SECOND * rocket_settings_->deploy_signal_duration / 10){ // Stop deploy 1 signal
       HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_RESET);
-      *device_state_ = DeviceState::kRunning;
+      *device_state_ = DeviceState::kStandby;
       user_interaction_state_ = UserInteractionState::kWaitingForCommand;
       HAL_UART_Transmit(huart2_, (uint8_t*)test_complete_text_, strlen(test_complete_text_), UART_TIMEOUT);
     }

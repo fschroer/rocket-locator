@@ -11,8 +11,7 @@ RocketFactory::RocketFactory(){
 
 void RocketFactory::Begin(){
   Radio.SetChannel(902300000 + rocket_settings_.lora_channel * 200000);
-  //uint8_t hello[] = {'R', 'o', 'c', 'k', 'e', 't', 'L', 'o', 'c', 'a', 't', 'o', 'r', ' ', 'v', '1', '.', '2', '\n'};
-  Radio.Send((uint8_t*)lora_startup_message_, sizeof(lora_startup_message_));
+  Radio.Send((uint8_t*)lora_startup_message_, strlen(lora_startup_message_));
   flight_manager_.Begin();
   rocket_gps_.Begin();
   rocket_file_.OpenAltimeterArchiveWrite(rocket_settings_.archive_position);
@@ -94,7 +93,7 @@ void RocketFactory::ProcessRocketEvents(){
       SetDisplayDeployMode();
       rocket_file_.SaveRocketSettings(&rocket_settings_);
       Radio.SetChannel(902300000 + rocket_settings_.lora_channel * 200000);
-      device_state_ = DeviceState::kRunning;
+      device_state_ = DeviceState::kStandby;
       ResetDisplayDeployMode();
       break;
     case DeviceState::kTest:

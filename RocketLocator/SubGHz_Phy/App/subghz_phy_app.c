@@ -25,11 +25,12 @@
 #include "radio.h"
 
 /* USER CODE BEGIN Includes */
-
+//#include "RocketDefs.hpp"
 /* USER CODE END Includes */
 
 /* External variables ---------------------------------------------------------*/
 /* USER CODE BEGIN EV */
+extern enum DeviceState device_state_;
 
 /* USER CODE END EV */
 
@@ -61,10 +62,6 @@
 static RadioEvents_t RadioEvents;
 
 /* USER CODE BEGIN PV */
-/* App Rx Buffer*/
-//static uint8_t BufferRx[MAX_APP_BUFFER_SIZE];
-/* App Tx Buffer*/
-static uint8_t BufferTx[MAX_APP_BUFFER_SIZE];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -139,11 +136,7 @@ void SubghzApp_Init(void)
                     0, true, 0, 0, LORA_IQ_INVERSION_ON, true);
 
   Radio.SetMaxPayloadLength(MODEM_LORA, MAX_APP_BUFFER_SIZE);
-
-
-  /*fills tx buffer*/
-  memset(BufferTx, 0x0, MAX_APP_BUFFER_SIZE);
-
+  Radio.Rx(RX_TIMEOUT_VALUE);
 
   /* USER CODE END SubghzApp_Init_2 */
 }
@@ -156,28 +149,34 @@ void SubghzApp_Init(void)
 static void OnTxDone(void)
 {
   /* USER CODE BEGIN OnTxDone */
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   /* USER CODE END OnTxDone */
 }
 
 static void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t LoraSnr_FskCfo)
 {
   /* USER CODE BEGIN OnRxDone */
-  uint16_t p_size = size;
-  char payload_char;
-  for (int i = 0; i < p_size; i++)
-    payload_char = payload[i];
+  if (size == 5 && payload[0] == 'R' && payload[1] == 'u' && payload[2] == 'n')
+    device_state_ = kRunning;
+  else if (size == 6 && payload[0] == 'S' && payload[1] == 't' && payload[2] == 'o' && payload[3] == 'p')
+    device_state_ = kStandby;
+  Radio.Rx(RX_TIMEOUT_VALUE);
   /* USER CODE END OnRxDone */
 }
 
 static void OnTxTimeout(void)
 {
   /* USER CODE BEGIN OnTxTimeout */
+  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
   /* USER CODE END OnTxTimeout */
 }
 
 static void OnRxTimeout(void)
 {
   /* USER CODE BEGIN OnRxTimeout */
+  Radio.Rx(RX_TIMEOUT_VALUE);
   /* USER CODE END OnRxTimeout */
 }
 

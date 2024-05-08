@@ -33,7 +33,7 @@ private:
   SensorValues sensor_values_;
   FlightStats flight_stats_;
 
-  const char* lora_startup_message_ = "Rocket Locator v1.2\n";
+  const char* lora_startup_message_ = "Rocket Locator v1.2\n\0";
 
   int peripheral_interrupt_count_ = 0;
   int battery_level_ = 0;
@@ -42,7 +42,6 @@ private:
   uint8_t flight_stats_msg_[FLIGHT_STATS_MSG_HDR_SIZE + FLIGHT_STATS_MSG_SIZE] = {'F', 'S', 'M'};
 	int rocket_service_count_ = 0;
 
-  DeviceState device_state_ = kRunning;
   uint8_t config_cycle_count_ = 0;
 
   bool archive_opened_ = false;
@@ -61,4 +60,5 @@ private:
 };
 
 extern volatile int m_rocket_service_state;
+extern enum DeviceState device_state_;
 #endif

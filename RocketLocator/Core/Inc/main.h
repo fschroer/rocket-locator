@@ -37,6 +37,14 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
+enum DeviceState{
+  kStandby = 0,
+  kRunning,
+  kConfig,
+  kConfigSavePending,
+  kTest
+};
+
 
 /* USER CODE END ET */
 

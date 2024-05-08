@@ -4,8 +4,8 @@
 #include "sys_app.h"
 #include "time.h"
 
-#define MAX_APP_BUFFER_SIZE 255
-#define PAYLOAD_LEN 64
+//#define MAX_APP_BUFFER_SIZE 255
+//#define PAYLOAD_LEN 64
 
 #define RTC_CLOCK_SOURCE_LSE
 /*#define RTC_CLOCK_SOURCE_LSI*/
@@ -22,8 +22,8 @@
 
 RocketFactory rocket_factory_;
 
-UTIL_TIMER_Object_t peripheral_service_timer_;
-volatile int peripheral_service_interrupts_;
+//UTIL_TIMER_Object_t peripheral_service_timer_;
+//volatile int peripheral_service_interrupts_;
 
 volatile float mAGL = 0.0;
 volatile float mVelocityShortSample = 0.0;
@@ -33,6 +33,7 @@ volatile DeployMode mDeployMode = DeployMode::kDroguePrimaryDrogueBackup;
 volatile float mX = 0.0, mY = 0.0, mZ = 0.0;
 volatile float m_g_force = 0.0;
 volatile int m_rocket_service_state = 0;
+enum DeviceState device_state_ = kStandby;
 
 int main(void){
   HAL_Init();
@@ -49,27 +50,25 @@ int main(void){
   LL_USART_EnableIT_ERROR(USART2);
   HAL_Delay(500);
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-  //rocket_factory_.Begin();
-  UTIL_TIMER_Create(&peripheral_service_timer_, MILLIS_PER_SECOND / SAMPLES_PER_SECOND, UTIL_TIMER_PERIODIC, OnPeripheralServiceTimer, NULL);
-  UTIL_TIMER_Start(&peripheral_service_timer_);
-int i = 0;
+  rocket_factory_.Begin();
+  //UTIL_TIMER_Create(&peripheral_service_timer_, MILLIS_PER_SECOND / SAMPLES_PER_SECOND, UTIL_TIMER_PERIODIC, OnPeripheralServiceTimer, NULL);
+  //UTIL_TIMER_Start(&peripheral_service_timer_);
+  __HAL_RCC_TIM2_CLK_ENABLE();
+  TIM2->PSC = HAL_RCC_GetPCLK1Freq()/1000000 - 1;
+  TIM2->CR1 = TIM_CR1_EN;
   while (1){
-  	if (peripheral_service_interrupts_ > 0){
-  		peripheral_service_interrupts_--;
-  		m_rocket_service_state = 1;
-  		//rocket_factory_.ProcessRocketEvents();
-  		m_rocket_service_state = 0;
-  		if (i++ == 20){
-  		  i = 0;
-  		  Radio.Send((uint8_t*)"Test",4);
-  		}
+  	if (TIM2->CNT > 0){
+      peripheral_service_interrupts_--;
+      m_rocket_service_state = 1;
+      rocket_factory_.ProcessRocketEvents();
+      m_rocket_service_state = 0;
   	}
   }
 }
 
-void OnPeripheralServiceTimer(void *context) {
-	peripheral_service_interrupts_++;
-}
+//void OnPeripheralServiceTimer(void *context) {
+//	peripheral_service_interrupts_++;
+//}
 
 void SystemClock_Config(void){
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
@@ -111,7 +110,10 @@ void SystemClock_Config(void){
 
 void UART1_CharReception_Callback(void){
   /* Read Received character. RXNE flag is cleared by reading of RDR register */
-	rocket_factory_.ProcessUART1Char(LL_USART_ReceiveData8(USART1));
+  uint8_t usart1_char = LL_USART_ReceiveData8(USART1);
+  if( usart1_char > 0x90)
+    int j = 0;
+  rocket_factory_.ProcessUART1Char(usart1_char);
   //HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin); /* LED_BLUE */
   //HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin); /* LED_GREEN */
   //HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin); /* LED_RED */

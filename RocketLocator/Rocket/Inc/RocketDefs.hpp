@@ -13,13 +13,6 @@
 #define CENTURY 100
 #define ALTIMETER_SCALE 10
 
-enum DeviceState{
-  kRunning = 0,
-  kConfig,
-  kConfigSavePending,
-  kTest
-};
-
 enum DeployMode
 {
   kDroguePrimaryDrogueBackup = 1,
