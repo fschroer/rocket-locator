@@ -3,6 +3,8 @@
 #include "RocketFactory.hpp"
 #include "sys_app.h"
 #include "time.h"
+#include "tim.h"
+#include "stm32wlxx_hal_tim.h"
 
 //#define MAX_APP_BUFFER_SIZE 255
 //#define PAYLOAD_LEN 64
@@ -33,7 +35,20 @@ volatile DeployMode mDeployMode = DeployMode::kDroguePrimaryDrogueBackup;
 volatile float mX = 0.0, mY = 0.0, mZ = 0.0;
 volatile float m_g_force = 0.0;
 volatile int m_rocket_service_state = 0;
+volatile uint8_t m_radio_send = 0;
+volatile uint8_t m_uart1_rec = 0;
+volatile uint8_t m_processing_new_gga_sentence_ = 0;
+volatile uint8_t m_processing_new_rmc_sentence_ = 0;
+volatile uint8_t m_bad_gps_message = 0;
+
 enum DeviceState device_state_ = kStandby;
+
+uint32_t tim2_time = 0, previous_tim2_time = 0;
+uint32_t sample_time = 48000000 / SAMPLES_PER_SECOND; //clock rate divided by rocket data samples per second
+uint32_t uart_time = 0, previous_uart_time = 0;
+uint32_t pps_start_time = 0, previous_pps_start_time = 0;
+uint8_t tim2_count = 0, sample_time_avg_calc_sample_count = 0;
+uint32_t sample_time_avg_accumulator = 0;
 
 int main(void){
   HAL_Init();
@@ -51,17 +66,18 @@ int main(void){
   HAL_Delay(500);
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
   rocket_factory_.Begin();
-  //UTIL_TIMER_Create(&peripheral_service_timer_, MILLIS_PER_SECOND / SAMPLES_PER_SECOND, UTIL_TIMER_PERIODIC, OnPeripheralServiceTimer, NULL);
-  //UTIL_TIMER_Start(&peripheral_service_timer_);
-  __HAL_RCC_TIM2_CLK_ENABLE();
-  TIM2->PSC = HAL_RCC_GetPCLK1Freq()/1000000 - 1;
-  TIM2->CR1 = TIM_CR1_EN;
+  MX_TIM2_Init();
+  HAL_TIM_Base_Start(&htim2);
   while (1){
-  	if (TIM2->CNT > 0){
-      peripheral_service_interrupts_--;
+    tim2_time = __HAL_TIM_GET_COUNTER(&htim2);
+  	if (tim2_time - previous_tim2_time >= sample_time){
       m_rocket_service_state = 1;
-      rocket_factory_.ProcessRocketEvents();
+      rocket_factory_.ProcessRocketEvents(tim2_count);
       m_rocket_service_state = 0;
+      previous_tim2_time = tim2_time;
+      if (tim2_count < SAMPLES_PER_SECOND - 1)
+        tim2_count++;
+      m_uart1_rec = 0;
   	}
   }
 }
@@ -109,11 +125,24 @@ void SystemClock_Config(void){
 }
 
 void UART1_CharReception_Callback(void){
+  m_uart1_rec = 1;
+  previous_uart_time = uart_time;
+  uart_time = __HAL_TIM_GET_COUNTER(&htim2);
+  if (uart_time - previous_uart_time > 24000000){
+    previous_pps_start_time = pps_start_time;
+    pps_start_time = uart_time;
+    sample_time_avg_accumulator += ((pps_start_time - previous_pps_start_time) / SAMPLES_PER_SECOND);
+    sample_time_avg_calc_sample_count++;
+    if (sample_time_avg_calc_sample_count == SAMPLE_TIME_AVG_CALC_SAMPLES){
+      sample_time_avg_calc_sample_count = 0;
+      sample_time = sample_time_avg_accumulator / SAMPLE_TIME_AVG_CALC_SAMPLES;
+      sample_time_avg_accumulator = 0;
+    }
+    tim2_count = 0;
+    previous_tim2_time = __HAL_TIM_GET_COUNTER(&htim2);
+  }
   /* Read Received character. RXNE flag is cleared by reading of RDR register */
-  uint8_t usart1_char = LL_USART_ReceiveData8(USART1);
-  if( usart1_char > 0x90)
-    int j = 0;
-  rocket_factory_.ProcessUART1Char(usart1_char);
+  rocket_factory_.ProcessUART1Char(LL_USART_ReceiveData8(USART1));
   //HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin); /* LED_BLUE */
   //HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin); /* LED_GREEN */
   //HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin); /* LED_RED */

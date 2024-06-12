@@ -21,13 +21,12 @@ void RocketFactory::Begin(){
   ResetDisplayDeployMode();
 }
 
-void RocketFactory::ProcessRocketEvents(){
+void RocketFactory::ProcessRocketEvents(uint8_t rocket_service_count){
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED5_GPIO_Port, LED5_Pin, GPIO_PIN_RESET);
   switch (device_state_){
     case DeviceState::kRunning:
-      rocket_service_count_++;
       flight_manager_.FlightService();
       if (flight_stats_.flight_state >= FlightStates::kLaunched && !archive_opened_){
         for (int i = flight_stats_.flight_data_array_index - LAUNCH_LOOKBACK_SAMPLES + 1; i < flight_stats_.flight_data_array_index; i++){
@@ -47,7 +46,7 @@ void RocketFactory::ProcessRocketEvents(){
           rocket_file_.WriteAccelerometerSample(&flight_stats_.accelerometer[flight_stats_.flight_data_array_index]);
           flight_stats_.sample_count++;
         }
-        else if (rocket_service_count_ == SAMPLES_PER_SECOND){
+        else if (rocket_service_count == SAMPLES_PER_SECOND){
             rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.flight_data_array_index]);
             flight_stats_.sample_count++;
         }
@@ -71,10 +70,10 @@ void RocketFactory::ProcessRocketEvents(){
           altimeter_archive_closed_ = true;
         }
       }
-//      if (rocket_service_count_ == SAMPLES_PER_SECOND / 2)
+//      if (rocket_service_count == SAMPLES_PER_SECOND / 2)
 //        if (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kLanded)
 //          SendTelemetryData();
-      if (rocket_service_count_ == SAMPLES_PER_SECOND){ // Lower frequency conserves battery.
+      if (rocket_service_count == SAMPLES_PER_SECOND - 10){ // Lower frequency conserves battery.
         if (flight_stats_.flight_state == FlightStates::kWaitingLaunch){ // Blink LoRa transmit LED for visual validation until liftoff
           HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
           if (HAL_GPIO_ReadPin(EMATCH_SENSE_1_GPIO_Port, EMATCH_SENSE_1_Pin))
@@ -82,7 +81,6 @@ void RocketFactory::ProcessRocketEvents(){
           if (HAL_GPIO_ReadPin(EMATCH_SENSE_2_GPIO_Port, EMATCH_SENSE_2_Pin))
             HAL_GPIO_WritePin(LED5_GPIO_Port, LED5_Pin, GPIO_PIN_SET);
         }
-        rocket_service_count_ = 0;
         SendTelemetryData();
       }
       flight_manager_.IncrementFlightDataQueue();
@@ -115,9 +113,12 @@ void RocketFactory::SendTelemetryData(){
     uint8_t telemetryPacket[packet_size] = {0};
     rocket_gps_.GgaToPacket(telemetryPacket);
     flight_manager_.AglToPacket(telemetryPacket + telemetry_data_size, agl_data_size);
+    m_radio_send = !m_radio_send;
     Radio.Send(telemetryPacket, packet_size);
+    //m_radio_send = !m_radio_send;
   }
   else{
+    m_bad_gps_message++;
     const char* bad_gps_data = "Bad GPS Data\r\n";
     Radio.Send((uint8_t*)bad_gps_data, 14);
   }

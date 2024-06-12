@@ -19,7 +19,7 @@ class RocketFactory{
 public:
   RocketFactory();
   void Begin();
-  void ProcessRocketEvents();
+  void ProcessRocketEvents(uint8_t rocket_service_count);
   void ProcessUART1Char(uint8_t uart_char);
   void ProcessUART2Char(UART_HandleTypeDef *huart2, uint8_t uart_char);
 private:
@@ -40,7 +40,6 @@ private:
   int flight_stats_delay_count_ = 0;
 
   uint8_t flight_stats_msg_[FLIGHT_STATS_MSG_HDR_SIZE + FLIGHT_STATS_MSG_SIZE] = {'F', 'S', 'M'};
-	int rocket_service_count_ = 0;
 
   uint8_t config_cycle_count_ = 0;
 
@@ -61,4 +60,7 @@ private:
 
 extern volatile int m_rocket_service_state;
 extern enum DeviceState device_state_;
+extern volatile uint8_t m_radio_send;
+extern volatile uint8_t m_bad_gps_message;
+
 #endif

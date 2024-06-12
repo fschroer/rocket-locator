@@ -78,6 +78,10 @@ void Error_Handler(void);
 #define RTC_N_PREDIV_S 10
 #define RTC_PREDIV_S ((1<<RTC_N_PREDIV_S)-1)
 #define RTC_PREDIV_A ((1<<(15-RTC_N_PREDIV_S))-1)
+#define EMATCH_SENSE_1_Pin GPIO_PIN_4
+#define EMATCH_SENSE_1_GPIO_Port GPIOB
+#define EMATCH_SENSE_2_Pin GPIO_PIN_10
+#define EMATCH_SENSE_2_GPIO_Port GPIOA
 #define DEPLOY_1_Pin GPIO_PIN_8
 #define DEPLOY_1_GPIO_Port GPIOB
 #define LED4_Pin GPIO_PIN_0
@@ -96,13 +100,9 @@ void Error_Handler(void);
 #define LED2_GPIO_Port GPIOA
 #define LED1_Pin GPIO_PIN_8
 #define LED1_GPIO_Port GPIOA
-#define EMATCH_SENSE_1_Pin GPIO_PIN_4
-#define EMATCH_SENSE_1_GPIO_Port GPIOB
-#define EMATCH_SENSE_2_Pin GPIO_PIN_10
-#define EMATCH_SENSE_2_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
-
+#define SAMPLE_TIME_AVG_CALC_SAMPLES 10
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

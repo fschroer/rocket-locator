@@ -82,15 +82,15 @@ void FlightManager::GetAGL(){
       agl_adjust_count_ = 0;
   }
   flight_stats_->agl[flight_stats_->flight_data_array_index] = sensor_altitude_ - flight_stats_->agl_adjust;
-  if (TEST)
-    flight_stats_->agl[flight_stats_->flight_data_array_index] = test_agl_[flight_stats_->test_data_sample_count];
+//  if (TEST)
+//    flight_stats_->agl[flight_stats_->flight_data_array_index] = test_agl_[flight_stats_->test_data_sample_count];
   mAGL = flight_stats_->agl[flight_stats_->flight_data_array_index];
 }
 
 void FlightManager::GetAccelerometerData(){
   Accelerometer_t accelerometer;
   accelerometer_.UpdateAccelerometerValues(&accelerometer);
-  if (TEST){
+/*  if (TEST){
     if (flight_stats_->flight_state == FlightStates::kWaitingLaunch && flight_stats_->sample_count > 5){
       accelerometer.x = 4300;
       accelerometer.y = 0;
@@ -106,7 +106,7 @@ void FlightManager::GetAccelerometerData(){
       accelerometer.y = 0;
       accelerometer.z = 0;
     }
-  }
+  }*/
   flight_stats_->accelerometer[flight_stats_->flight_data_array_index].x = accelerometer.x;
   flight_stats_->accelerometer[flight_stats_->flight_data_array_index].y = accelerometer.y;
   flight_stats_->accelerometer[flight_stats_->flight_data_array_index].z = accelerometer.z;

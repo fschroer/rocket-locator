@@ -50,10 +50,14 @@ private:
   uint8_t gps_checksum_ = 0;
   uint8_t calculated_checksum_ = 0;
   bool gps_date_valid_ = false, gps_time_valid_ = false;
-  bool processing_gga_sentence_ = false;
+//  bool processing_new_sentences_ = false;
 
   void ProcessGgaSentence();
   void ProcessRmcSentence();
   void ResetTelemetryData();
 };
+
+extern volatile uint8_t m_processing_new_gga_sentence_;
+extern volatile uint8_t m_processing_new_rmc_sentence_;
+
 #endif

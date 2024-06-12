@@ -123,16 +123,23 @@ void RocketGPS::ResetTelemetryData(){
 void RocketGPS::ProcessChar(uint8_t gps_char){
   if (gps_char == '$')
     gps_msg_buffer_index_ = 0;
-  if ((gps_msg_buffer_[gps_msg_buffer_index_++] = gps_char) == '\n'){
+  gps_msg_buffer_[gps_msg_buffer_index_++] = gps_char;
+  if (gps_msg_buffer_index_ == 7 && strncmp((char*)gps_msg_buffer_ + 3, "GGA", GPS_SENTENCE_TYPE_LEN - 3) == 0)
+    m_processing_new_gga_sentence_ = 2;
+  if (gps_msg_buffer_index_ == 7 && strncmp((char*)gps_msg_buffer_ + 3, "RMC", GPS_SENTENCE_TYPE_LEN - 3) == 0)
+    m_processing_new_rmc_sentence_ = 3;
+  if (gps_char == '\n'){
     if (strncmp((char*)gps_msg_buffer_ + 3, "GGA", GPS_SENTENCE_TYPE_LEN - 3) == 0){
       memcpy(gga_sentence_, gps_msg_buffer_, RX_BUFFER_SIZE);
       gga_sentence_length_ = gps_msg_buffer_index_;
       ProcessGgaSentence();
+      m_processing_new_gga_sentence_ = 0;
     }
     else if (strncmp((char*)gps_msg_buffer_ + 3, "RMC", GPS_SENTENCE_TYPE_LEN - 3) == 0){
       memcpy(rmc_sentence_, gps_msg_buffer_, RX_BUFFER_SIZE);
       rmc_sentence_length_ = gps_msg_buffer_index_;
       ProcessRmcSentence();
+      m_processing_new_rmc_sentence_ = 0;
     }
     else{
       int i = 0;

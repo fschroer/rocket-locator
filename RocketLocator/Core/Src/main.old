@@ -20,6 +20,7 @@
 #include "main.h"
 #include "i2c.h"
 #include "app_subghz_phy.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -66,6 +67,7 @@ void SystemClock_Config(void);
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -91,6 +93,7 @@ int main(void)
   MX_SubGHz_Phy_Init();
   MX_I2C2_Init();
   MX_USART1_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
