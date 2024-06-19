@@ -103,6 +103,9 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 #define SAMPLE_TIME_AVG_CALC_SAMPLES 10
+#define ADC_FS              4095U       // ADC in 12bit resolution
+#define VREF_MEAS_MV        3000U       // VDDA voltage during VREFINT factory calibration in mV.
+#define VREFINT_CAL         (*((uint16_t *)0x1FFF75AA)) // DS13293 Table 14.
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

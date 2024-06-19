@@ -2,17 +2,18 @@
 #define ROCKET_GPS
 
 #include "radio_driver.h"
-#include "FlightManager.hpp"
+//#include "FlightManager.hpp"
 #include "string.h"
 #include "usart.h"
+#include "stdlib.h"
 
 #define GPS_SENTENCE_TYPE_LEN 6
 #define GPS_SENTENCE_CHECKSUM_LEN 3
 #define GPS_TX_PIN PA3
 #define GPS_RX_PIN PA2
+#define UART_TIMEOUT 5000
 
-struct __attribute__ ((packed)) Telemetry {
-  char sentence_type[GPS_SENTENCE_TYPE_LEN] = {0};
+struct __attribute__ ((packed)) GPSData {
   int date_stamp;
   int time_stamp;
   double latitude;
@@ -22,20 +23,16 @@ struct __attribute__ ((packed)) Telemetry {
   float hdop;
   float altitude;
   char checksum[GPS_SENTENCE_CHECKSUM_LEN] = {0};
-  FlightStates flight_state = FlightStates::kWaitingLaunch;
-  int sample_count;
 };
 
 class RocketGPS{
 public:
-  Telemetry telemetry_data_;
+  GPSData gps_data_;
 
   RocketGPS();
   void Begin();
   void ProcessChar(uint8_t gps_char);
-  void GgaToPacket(uint8_t *packet);
-  uint8_t TelemetryDataSize();
-  void SetFlightState(FlightStates flight_state, int sample_count);
+  void GPSToPacket(uint8_t *packet);
   int GetDate();
   int GetTime();
   bool GPSDatestampValid();

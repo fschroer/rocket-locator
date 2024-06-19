@@ -21,44 +21,44 @@ void RocketGPS::ProcessGgaSentence(){
     if (gga_sentence_[i] == ','){
       switch (field){
         case 0:
-          memcpy(telemetry_data_.sentence_type, gga_sentence_, GPS_SENTENCE_TYPE_LEN);
+          //memcpy(gps_data_.sentence_type, gga_sentence_, GPS_SENTENCE_TYPE_LEN);
           break;
         case 1:
           gga_sentence_[i] = 0;
-          telemetry_data_.time_stamp = atoi((const char*)&gga_sentence_[iPrev + 1]);
+          gps_data_.time_stamp = atoi((const char*)&gga_sentence_[iPrev + 1]);
           gps_time_valid_ = true;
           break;
         case 2:
           gga_sentence_[i] = 0;
-          telemetry_data_.latitude = atof((const char*)&gga_sentence_[iPrev + 1]);
+          gps_data_.latitude = atof((const char*)&gga_sentence_[iPrev + 1]);
           break;
         case 3:
           if (gga_sentence_[iPrev + 1] == 'S')
-            telemetry_data_.latitude = -telemetry_data_.latitude;
+            gps_data_.latitude = -gps_data_.latitude;
           break;
         case 4:
           gga_sentence_[i] = 0;
-          telemetry_data_.longitude = atof((const char*)&gga_sentence_[iPrev + 1]);
+          gps_data_.longitude = atof((const char*)&gga_sentence_[iPrev + 1]);
           break;
         case 5:
           if (gga_sentence_[iPrev + 1] == 'W')
-              telemetry_data_.longitude = -telemetry_data_.longitude;
+              gps_data_.longitude = -gps_data_.longitude;
           break;
         case 6:
           if (gga_sentence_[iPrev + 1] != ',')
-              telemetry_data_.q_ind = gga_sentence_[iPrev + 1];
+              gps_data_.q_ind = gga_sentence_[iPrev + 1];
           break;
         case 7:
           gga_sentence_[i] = 0;
-          telemetry_data_.satellites = atoi((const char*)&gga_sentence_[iPrev + 1]);
+          gps_data_.satellites = atoi((const char*)&gga_sentence_[iPrev + 1]);
           break;
         case 8:
           gga_sentence_[i] = 0;
-          telemetry_data_.hdop = atof((const char*)&gga_sentence_[iPrev + 1]);
+          gps_data_.hdop = atof((const char*)&gga_sentence_[iPrev + 1]);
           break;
         case 9:
           gga_sentence_[i] = 0;
-          telemetry_data_.altitude = atof((const char*)&gga_sentence_[iPrev + 1]);
+          gps_data_.altitude = atof((const char*)&gga_sentence_[iPrev + 1]);
           break;/*
         case 10:
           if (gpsSentence[iPrev + 1] != ',')
@@ -84,9 +84,9 @@ void RocketGPS::ProcessGgaSentence(){
       checksumCaptureActive = true;
     i++;
   }
-  memcpy(telemetry_data_.checksum, &gga_sentence_[iPrev + 1 + (telemetry_data_.q_ind == '2' ? 4 : 0)], GPS_SENTENCE_CHECKSUM_LEN);
-  gps_checksum_ = (telemetry_data_.checksum[1] <= '9' ? telemetry_data_.checksum[1] - '0' : telemetry_data_.checksum[1] - 55) * 16
-      + (telemetry_data_.checksum[2] <= '9' ? telemetry_data_.checksum[2] - '0' : telemetry_data_.checksum[2] - 55);
+  memcpy(gps_data_.checksum, &gga_sentence_[iPrev + 1 + (gps_data_.q_ind == '2' ? 4 : 0)], GPS_SENTENCE_CHECKSUM_LEN);
+  gps_checksum_ = (gps_data_.checksum[1] <= '9' ? gps_data_.checksum[1] - '0' : gps_data_.checksum[1] - 55) * 16
+      + (gps_data_.checksum[2] <= '9' ? gps_data_.checksum[2] - '0' : gps_data_.checksum[2] - 55);
 }
 
 void RocketGPS::ProcessRmcSentence(){
@@ -96,7 +96,7 @@ void RocketGPS::ProcessRmcSentence(){
       switch (field){
         case 9:
           rmc_sentence_[i] = 0;
-          telemetry_data_.date_stamp = atoi((const char*)&rmc_sentence_[iPrev + 1]);
+          gps_data_.date_stamp = atoi((const char*)&rmc_sentence_[iPrev + 1]);
           gps_date_valid_ = true;
           break;
       }
@@ -108,16 +108,16 @@ void RocketGPS::ProcessRmcSentence(){
 }
 
 void RocketGPS::ResetTelemetryData(){
-  telemetry_data_.time_stamp = 0;
-  telemetry_data_.latitude = 0.0;
-  telemetry_data_.longitude = 0.0;
-  telemetry_data_.q_ind = 0;
-  telemetry_data_.satellites = 0;
-  telemetry_data_.hdop = 0.0;
-  telemetry_data_.altitude = 0.0;
-  telemetry_data_.checksum[0] = 0;
-  telemetry_data_.checksum[1] = 0;
-  telemetry_data_.checksum[2] = 0;
+  gps_data_.time_stamp = 0;
+  gps_data_.latitude = 0.0;
+  gps_data_.longitude = 0.0;
+  gps_data_.q_ind = 0;
+  gps_data_.satellites = 0;
+  gps_data_.hdop = 0.0;
+  gps_data_.altitude = 0.0;
+  gps_data_.checksum[0] = 0;
+  gps_data_.checksum[1] = 0;
+  gps_data_.checksum[2] = 0;
 }
 
 void RocketGPS::ProcessChar(uint8_t gps_char){
@@ -149,25 +149,16 @@ void RocketGPS::ProcessChar(uint8_t gps_char){
   }
 }
 
-void RocketGPS::GgaToPacket(uint8_t *packet){
-  memcpy(packet, &telemetry_data_, sizeof(telemetry_data_));
-}
-
-uint8_t RocketGPS::TelemetryDataSize(){
-  return sizeof(telemetry_data_);
-}
-
-void RocketGPS::SetFlightState(FlightStates flight_state, int sample_count){
-  telemetry_data_.flight_state = flight_state;
-  telemetry_data_.sample_count = sample_count;
+void RocketGPS::GPSToPacket(uint8_t *packet){
+  memcpy(packet, &gps_data_, sizeof(gps_data_));
 }
 
 int RocketGPS::GetDate(){
-  return telemetry_data_.date_stamp;
+  return gps_data_.date_stamp;
 }
 
 int RocketGPS::GetTime(){
-  return telemetry_data_.time_stamp;
+  return gps_data_.time_stamp;
 }
 
 bool RocketGPS::GPSDatestampValid(){

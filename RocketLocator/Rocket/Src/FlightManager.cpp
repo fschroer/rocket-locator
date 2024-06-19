@@ -3,21 +3,25 @@
 FlightManager::FlightManager(){
 }
 
-FlightManager::FlightManager(RocketSettings *rocket_settings, SensorValues *sensor_values, FlightStats *flight_stats){
+FlightManager::FlightManager(RocketSettings *rocket_settings, FlightStats *flight_stats){
   rocket_settings_ = rocket_settings;
-  sensor_values_ = sensor_values;
   flight_stats_ = flight_stats;
   SumSquares();
 }
 
-void FlightManager::Begin(){
+void FlightManager::Begin(EX_Error *accelerometer_init_status, bool *altimeter_init_status){
   //APP_LOG(TS_OFF, VLEVEL_M, "\r\nFlightManager begin\r\n");
   MX_I2C2_Init();
-  if (!accelerometer_.MC3416Init())
+  if (!(*accelerometer_init_status = accelerometer_.MC3416Init()))
     HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
   else{
-    HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
-    APP_LOG(TS_OFF, VLEVEL_M, "\r\nAccelerometer initialization failed\r\n");
+    for (int i = 0; i < *accelerometer_init_status; i++){
+      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+      HAL_Delay(500);
+      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
+      HAL_Delay(500);
+    }
+    APP_LOG(TS_OFF, VLEVEL_M, "\r\nAccelerometer initialization failed: %d\r\n", accelerometer_init_status);
   }
   HAL_Delay(1000); //Allow time for init status light to stay visible
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
@@ -32,7 +36,7 @@ void FlightManager::Begin(){
   Bmp280InitDefaultParams(&bmp280_.params);
   bmp280_.addr = BMP280_I2C_ADDRESS_0;
   bmp280_.i2c = &hi2c2;
-  if (Bmp280Init(&bmp280_, &bmp280_.params))
+  if (*altimeter_init_status = Bmp280Init(&bmp280_, &bmp280_.params))
     HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
   else{
     HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
@@ -48,13 +52,6 @@ void FlightManager::Begin(){
   flight_stats_->sample_count = LAUNCH_LOOKBACK_SAMPLES;
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   //HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
-}
-
-void FlightManager::FlightService(){
-  GetAccelerometerData();
-  GetAGL();
-  UpdateVelocity();
-  UpdateFlightState();
 }
 
 void FlightManager::IncrementFlightDataQueue(){
@@ -340,7 +337,11 @@ void FlightManager::serviceBeeper(){
 
 void FlightManager::AglToPacket(uint8_t *packet, uint8_t length){
   if (flight_stats_->flight_data_array_index >= length)
-      memcpy(packet, &flight_stats_->agl[flight_stats_->flight_data_array_index - length + 1], sizeof(float) * length);
+    for (uint8_t i = 0; i < length; i++){
+      float agl_sample = flight_stats_->agl[flight_stats_->flight_data_array_index - length + 1 + i];
+      *((uint16_t*)(packet + i * sizeof(uint16_t))) = int((agl_sample > 0 ? agl_sample : 0) * ALTIMETER_SCALE);
+    }
+//      memcpy(packet, &flight_stats_->agl[flight_stats_->flight_data_array_index - length + 1], sizeof(float) * length);
 }
 
 float FlightManager::GetGForceShortSample(){

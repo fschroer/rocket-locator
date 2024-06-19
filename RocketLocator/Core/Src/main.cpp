@@ -5,6 +5,7 @@
 #include "time.h"
 #include "tim.h"
 #include "stm32wlxx_hal_tim.h"
+#include "adc.h"
 
 //#define MAX_APP_BUFFER_SIZE 255
 //#define PAYLOAD_LEN 64
@@ -50,6 +51,10 @@ uint32_t pps_start_time = 0, previous_pps_start_time = 0;
 uint8_t tim2_count = 0, sample_time_avg_calc_sample_count = 0;
 uint32_t sample_time_avg_accumulator = 0;
 
+uint16_t adcIn14Raw = 0;
+uint16_t VDDAmV = 0;
+uint16_t VREFINTmV = 0;
+
 int main(void){
   HAL_Init();
   SystemClock_Config();
@@ -68,7 +73,25 @@ int main(void){
   rocket_factory_.Begin();
   MX_TIM2_Init();
   HAL_TIM_Base_Start(&htim2);
+  MX_ADC_Init();
+  /**RR Perform ADC1 self calibration */
+  if (HAL_ADCEx_Calibration_Start(&hadc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /**>RR Start ADc in Continuous Mode */
+  if (HAL_ADC_Start(&hadc) != HAL_OK)
+  {
+    Error_Handler();
+  }
   while (1){
+    HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+    adcIn14Raw = HAL_ADC_GetValue(&hadc);
+    if (adcIn14Raw > 0)
+      VDDAmV = (VREF_MEAS_MV * VREFINT_CAL) / adcIn14Raw;
+    else
+      VDDAmV = 3300;
+    VREFINTmV = (VDDAmV * adcIn14Raw) / ADC_FS;
     tim2_time = __HAL_TIM_GET_COUNTER(&htim2);
   	if (tim2_time - previous_tim2_time >= sample_time){
       m_rocket_service_state = 1;

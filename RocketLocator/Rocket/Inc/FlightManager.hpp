@@ -25,9 +25,12 @@
 class FlightManager{
 public:
   FlightManager();
-  FlightManager(RocketSettings *rocket_settings, SensorValues *sensor_values, FlightStats *flight_stats);
-  void Begin();
-  void FlightService();
+  FlightManager(RocketSettings *rocket_settings, FlightStats *flight_stats);
+  void Begin(EX_Error *accelerometer_init_status, bool *altimeter_init_status);
+  void GetAccelerometerData();
+  void GetAGL();
+  void UpdateVelocity();
+  void UpdateFlightState();
   void IncrementFlightDataQueue();
   void AglToPacket(uint8_t *packet, uint8_t length);
   DeployMode GetDeployMode();
@@ -40,7 +43,6 @@ private:
   Accelerometer accelerometer_;
 
   RocketSettings *rocket_settings_;
-  SensorValues *sensor_values_;
   FlightStats *flight_stats_;
 
   int noseover_time_ = 0;
@@ -60,10 +62,6 @@ private:
   float g_force_last_ = 0.0, g_force_short_sample_ = 0.0, g_force_long_sample_;
   uint8_t accelerometer_state_ = AccelerometerStates::kAtRest;
 
-  void GetAccelerometerData();
-  void GetAGL();
-  void UpdateFlightState();
-  void UpdateVelocity();
   void updateMaxAltitude();
   void SumSquares();
   void serviceBeeper();
