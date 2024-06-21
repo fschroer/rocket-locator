@@ -1,7 +1,7 @@
 #include <RocketFactory.hpp>
 
 RocketFactory::RocketFactory(){
-  //rocket_file_.SaveRocketSettings(&rocket_settings_);
+  //rocket_file_.SaveRocketSettings(&rocket_settings_); //for testing only
   rocket_file_.ReadRocketSettings(&rocket_settings_);
   if (rocket_settings_.lora_channel > MAX_LORA_CHANNEL)
   	rocket_settings_.lora_channel = 0;
@@ -55,7 +55,7 @@ void RocketFactory::ProcessRocketEvents(uint8_t rocket_service_count){
           rocket_file_.WriteAccelerometerSample(&flight_stats_.accelerometer[flight_stats_.flight_data_array_index]);
           flight_stats_.sample_count++;
         }
-        else if (rocket_service_count == SAMPLES_PER_SECOND){
+        else if (rocket_service_count == 0){
             rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.flight_data_array_index]);
             flight_stats_.sample_count++;
         }

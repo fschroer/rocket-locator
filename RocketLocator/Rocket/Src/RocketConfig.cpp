@@ -57,7 +57,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
       user_input_[--char_pos] = 0;
       break;
     }
-    break;
+    break;/*
   case UserInteractionState::kConfigHome:
     switch (uart_char){
     case 13: // Enter key
@@ -181,7 +181,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
     break;
   case UserInteractionState::kEditLoraChannel:
     AdjustConfigSetting(uart_char, &lora_channel_, MAX_LORA_CHANNEL, false);
-    break;
+    break;*/
   case UserInteractionState::kDataHome:
     if (uart_char >= '0' && uart_char <= '9' && rocket_file_.GetValidArchivePosition(uart_char - '0'))
         ExportData(uart_char - '0');
@@ -191,7 +191,7 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
       uart_line_len = MakeLine(uart_line_, cancel_text_);
       HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
     }
-    break;
+    break;/*
   case UserInteractionState::kTestHome:
     if (uart_char == '1'){
       *device_state_ = DeviceState::kTest;
@@ -228,11 +228,11 @@ void RocketConfig::ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char){
       uart_line_len = MakeLine(uart_line_, cancel_text_);
       HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
     }
-    break;
+    break;*/
   }
 }
 
-void RocketConfig::ProcessTestDeploy(){
+void RocketConfig::ProcessTestDeploy(){/*
   switch (user_interaction_state_){
   case UserInteractionState::kTestDeploy1:
     TestDeploy(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin);
@@ -240,9 +240,9 @@ void RocketConfig::ProcessTestDeploy(){
   case UserInteractionState::kTestDeploy2:
     TestDeploy(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin);
     break;
-  }
+  }*/
 }
-
+/*
 void RocketConfig::TestDeploy(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
   test_deploy_count_--;
   if (test_deploy_count_ > 60){
@@ -268,7 +268,7 @@ void RocketConfig::TestDeploy(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
     }
   }
 }
-
+*/
 int RocketConfig::MakeLine(char *target, const char *source1){
   int i = 0;
   for (; source1[i] != 0 && i < UART_LINE_MAX_LENGTH; i++)
@@ -376,7 +376,7 @@ bool RocketConfig::StrCmp(char *string1, const char *string2, int length){
   return false;
 }
 
-void RocketConfig::DisplayConfigSettingsMenu(){
+void RocketConfig::DisplayConfigSettingsMenu(){/*
   int uart_line_len = 0;
   uart_line_len = MakeLine(uart_line_, clear_screen_, config_menu_intro_, crlf_);
   HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
@@ -397,7 +397,7 @@ void RocketConfig::DisplayConfigSettingsMenu(){
   uart_line_len = MakeLine(uart_line_, lora_channel_text_, ToStr(lora_channel_, false));
   HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, crlf_, crlf_);
-  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);*/
 }
 
 void RocketConfig::DisplayDataMenu(){
@@ -431,17 +431,17 @@ void RocketConfig::DisplayDataMenu(){
   HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
 }
 
-void RocketConfig::DisplayTestMenu(){
+void RocketConfig::DisplayTestMenu(){/*
   int uart_line_len = 0;
   uart_line_len = MakeLine(uart_line_, clear_screen_, test_menu_intro_);
   HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
   HAL_UART_Transmit(huart2_, (uint8_t*)test_deploy1_text_, strlen(test_deploy1_text_), UART_TIMEOUT);
   HAL_UART_Transmit(huart2_, (uint8_t*)test_deploy2_text_, strlen(test_deploy2_text_), UART_TIMEOUT);
   uart_line_len = MakeLine(uart_line_, test_guidance_text_, crlf_);
-  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);*/
 }
 
-const char* RocketConfig::DeployModeString(DeployMode deploy_mode_value){
+const char* RocketConfig::DeployModeString(DeployMode deploy_mode_value){/*
   switch (deploy_mode_value){
   case DeployMode::kDroguePrimaryDrogueBackup:
     return drogue_primary_drogue_backup_text_;
@@ -456,10 +456,10 @@ const char* RocketConfig::DeployModeString(DeployMode deploy_mode_value){
     return drogue_backup_main_backup_text_;
     break;
   }
-  return "\0";
+  return "\0";*/
 }
 
-void RocketConfig::AdjustConfigSetting(uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths){
+void RocketConfig::AdjustConfigSetting(uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths){/*
   int uart_line_len = 0;
   switch (uart_char){
   case 13: // Enter key
@@ -482,7 +482,7 @@ void RocketConfig::AdjustConfigSetting(uint8_t uart_char, int *config_mode_setti
   if (uart_char == 91 || uart_char == 93){
     uart_line_len = MakeLine(uart_line_, cr_, ToStr(*config_mode_setting, tenths));
     HAL_UART_Transmit(huart2_, (uint8_t*)uart_line_, uart_line_len, UART_TIMEOUT);
-  }
+  }*/
 }
 
 void RocketConfig::ExportData(uint8_t archive_position){
@@ -521,7 +521,7 @@ void RocketConfig::ExportData(uint8_t archive_position){
   }
 }
 
-void RocketConfig::ExportFlightStats(){ //Export flight statistics
+void RocketConfig::ExportFlightStats(){/* //Export flight statistics
   int uart_line_len = 0;
   char export_line[255];
   char flight_stat[10];
@@ -578,7 +578,7 @@ void RocketConfig::ExportFlightStats(){ //Export flight statistics
   uart_line_len = MakeLine(export_line, landing_altitude_text, flight_stat, crlf_);
   HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
   uart_line_len = MakeLine(export_line, landing_sample_count_text, itoa(flight_stats_.landing_sample_count, sample_count, 10), crlf_);
-  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);
+  HAL_UART_Transmit(huart2_, (uint8_t*)export_line, uart_line_len, UART_TIMEOUT);*/
 }
 
 void RocketConfig::MakeDateTime(char *target, int date, int time, int sample_count, bool time_zone_adjust, bool fractional){

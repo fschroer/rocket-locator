@@ -78,32 +78,34 @@ void FlightManager::GetAGL(){
     if (agl_adjust_count_ > AGL_RESET_TIME)
       agl_adjust_count_ = 0;
   }
+#ifdef TEST
+  flight_stats_->agl[flight_stats_->flight_data_array_index] = test_agl_[flight_stats_->test_data_sample_count];
+#else
   flight_stats_->agl[flight_stats_->flight_data_array_index] = sensor_altitude_ - flight_stats_->agl_adjust;
-//  if (TEST)
-//    flight_stats_->agl[flight_stats_->flight_data_array_index] = test_agl_[flight_stats_->test_data_sample_count];
+#endif
   mAGL = flight_stats_->agl[flight_stats_->flight_data_array_index];
 }
 
 void FlightManager::GetAccelerometerData(){
   Accelerometer_t accelerometer;
   accelerometer_.UpdateAccelerometerValues(&accelerometer);
-/*  if (TEST){
-    if (flight_stats_->flight_state == FlightStates::kWaitingLaunch && flight_stats_->sample_count > 5){
-      accelerometer.x = 4300;
-      accelerometer.y = 0;
-      accelerometer.z = 0;
-    }
-    else if (flight_stats_->flight_state >= FlightStates::kLaunched && flight_stats_->sample_count > 60){
-      accelerometer.x = 100;
-      accelerometer.y = 0;
-      accelerometer.z = 0;
-    }
-    else if (flight_stats_->flight_state >= FlightStates::kDroguePrimaryDeployed){
-      accelerometer.x = 2048;
-      accelerometer.y = 0;
-      accelerometer.z = 0;
-    }
-  }*/
+#ifdef TEST
+  if (flight_stats_->flight_state == FlightStates::kWaitingLaunch && flight_stats_->sample_count > 5){
+    accelerometer.x = 4300;
+    accelerometer.y = 0;
+    accelerometer.z = 0;
+  }
+  else if (flight_stats_->flight_state >= FlightStates::kLaunched && flight_stats_->sample_count > 60){
+    accelerometer.x = 100;
+    accelerometer.y = 0;
+    accelerometer.z = 0;
+  }
+  else if (flight_stats_->flight_state >= FlightStates::kDroguePrimaryDeployed){
+    accelerometer.x = 2048;
+    accelerometer.y = 0;
+    accelerometer.z = 0;
+  }
+#endif
   flight_stats_->accelerometer[flight_stats_->flight_data_array_index].x = accelerometer.x;
   flight_stats_->accelerometer[flight_stats_->flight_data_array_index].y = accelerometer.y;
   flight_stats_->accelerometer[flight_stats_->flight_data_array_index].z = accelerometer.z;
