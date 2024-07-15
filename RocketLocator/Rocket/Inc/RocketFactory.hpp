@@ -47,7 +47,8 @@ private:
           + sizeof(uint16_t) // Launch detect altitude
           + sizeof(uint16_t) // Deploy channel 1 trigger threshold
           + sizeof(uint16_t) // Deploy channel 2 trigger threshold
-          + sizeof(uint16_t)] // Deploy signal duration
+          + sizeof(uint16_t) // Deploy signal duration
+          + DEVICE_NAME_LENGTH]
           = {'P', 'R', 'E'};
   uint8_t telemetry_msg_[LORA_MSG_TYPE_SIZE
           + sizeof(GPSData) // GPS data
@@ -64,19 +65,19 @@ private:
   bool altimeter_archive_closed_ = false;
   bool accelerometer_archive_closed_ = false;
 
-  EX_Error accelerometer_init_status_;
+  EX_Error accelerometer_status_;
   bool altimeter_init_status_;
 
   void ConfigDevice(float x_axis, float y_axis, float z_axis);
   void SendPreLaunchData();
   void SendTelemetryData();
-  void TransmitLEDsOn();
+  void TransmitLEDsOn();/*
   void DisplayDroguePrimaryDrogueBackup();
   void DisplayMainPrimaryMainBackup();
   void DisplayDroguePrimaryMainPrimary();
   void DisplayDrogueBackupMainBackup();
   void SetDisplayDeployMode();
-  void ResetDisplayDeployMode();
+  void ResetDisplayDeployMode();*/
 };
 
 extern volatile int m_rocket_service_state;

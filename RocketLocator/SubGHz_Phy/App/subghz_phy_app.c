@@ -149,15 +149,15 @@ void SubghzApp_Init(void)
 static void OnTxDone(void)
 {
   /* USER CODE BEGIN OnTxDone */
-  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  //HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   /* USER CODE END OnTxDone */
 }
 
 static void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t LoraSnr_FskCfo)
 {
   /* USER CODE BEGIN OnRxDone */
-  if (size == 5 && payload[0] == 'R' && payload[1] == 'u' && payload[2] == 'n')
+  if (size == 5 && payload[0] == 'R' && payload[1] == 'u' && payload[2] == 'n' && !HAL_GPIO_ReadPin(POWER_SENSE_GPIO_Port, POWER_SENSE_Pin))
     device_state_ = kRunning;
   else if (size == 6 && payload[0] == 'S' && payload[1] == 't' && payload[2] == 'o' && payload[3] == 'p')
     device_state_ = kStandby;

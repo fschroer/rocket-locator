@@ -11,13 +11,13 @@ RocketFactory::RocketFactory(){
 
 void RocketFactory::Begin(){
   Radio.SetChannel(902300000 + rocket_settings_.lora_channel * 200000);
-  flight_manager_.Begin(&accelerometer_init_status_, &altimeter_init_status_);
+  flight_manager_.Begin(&accelerometer_status_, &altimeter_init_status_);
   rocket_gps_.Begin();
   rocket_file_.OpenAltimeterArchiveWrite(rocket_settings_.archive_position);
   rocket_file_.OpenAccelerometerArchiveWrite(rocket_settings_.archive_position);
-  SetDisplayDeployMode();
-  HAL_Delay(1000);
-  ResetDisplayDeployMode();
+  //SetDisplayDeployMode();
+  //HAL_Delay(1000);
+  //ResetDisplayDeployMode();
   Radio.Send((uint8_t*)lora_startup_message_, strlen(lora_startup_message_));
 }
 
@@ -25,6 +25,10 @@ void RocketFactory::ProcessRocketEvents(uint8_t rocket_service_count){
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED5_GPIO_Port, LED5_Pin, GPIO_PIN_RESET);
+  if(HAL_GPIO_ReadPin(POWER_SENSE_GPIO_Port, POWER_SENSE_Pin))
+    HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+  else
+    HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   switch (device_state_){
     case DeviceState::kStandby:
       if (rocket_service_count == SAMPLES_PER_SECOND - 10){
@@ -36,7 +40,7 @@ void RocketFactory::ProcessRocketEvents(uint8_t rocket_service_count){
       flight_manager_.GetAccelerometerData();
       flight_manager_.GetAGL();
       flight_manager_.UpdateVelocity();
-      flight_manager_.UpdateFlightState();
+      flight_manager_.UpdateFlightState(rocket_file_);
       if (flight_stats_.flight_state >= FlightStates::kLaunched && !archive_opened_){
         for (int i = flight_stats_.flight_data_array_index - LAUNCH_LOOKBACK_SAMPLES + 1; i < flight_stats_.flight_data_array_index; i++){
           rocket_file_.WriteAltimeterSample(flight_stats_.agl[i]);
@@ -65,19 +69,13 @@ void RocketFactory::ProcessRocketEvents(uint8_t rocket_service_count){
         rocket_file_.CloseAccelerometerArchive();
         accelerometer_archive_closed_ = true;
       }
-      if (flight_stats_.flight_state == FlightStates::kLanded){
-        if (!datestamp_saved_){
-          flight_stats_.launch_date = rocket_gps_.GetDate();
-          flight_stats_.launch_time = rocket_gps_.GetTime();
-        }
-        if (!altimeter_archive_closed_){
-          rocket_file_.WriteFlightMetadata(&flight_stats_);
-          rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.flight_data_array_index]);
-          rocket_file_.CloseAltimeterArchive();
-          rocket_file_.UpdateArchivePosition(&rocket_settings_);
-          rocket_file_.SaveRocketSettings(&rocket_settings_);
-          altimeter_archive_closed_ = true;
-        }
+      if (flight_stats_.flight_state == FlightStates::kLanded && !altimeter_archive_closed_){
+        //rocket_file_.WriteFlightMetadata(&flight_stats_);
+        rocket_file_.WriteAltimeterSample(flight_stats_.agl[flight_stats_.flight_data_array_index]);
+        rocket_file_.CloseAltimeterArchive();
+        rocket_file_.UpdateArchivePosition(&rocket_settings_);
+        rocket_file_.SaveRocketSettings(&rocket_settings_);
+        altimeter_archive_closed_ = true;
       }
 //      if (rocket_service_count == SAMPLES_PER_SECOND / 2)
 //        if (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kLanded)
@@ -93,11 +91,11 @@ void RocketFactory::ProcessRocketEvents(uint8_t rocket_service_count){
     case DeviceState::kConfig:
       break;
     case DeviceState::kConfigSavePending:
-      SetDisplayDeployMode();
+      //SetDisplayDeployMode();
       rocket_file_.SaveRocketSettings(&rocket_settings_);
       Radio.SetChannel(902300000 + rocket_settings_.lora_channel * 200000);
       device_state_ = DeviceState::kStandby;
-      ResetDisplayDeployMode();
+      //ResetDisplayDeployMode();
       break;
     case DeviceState::kTest:
       rocket_config_.ProcessTestDeploy();
@@ -115,9 +113,19 @@ void RocketFactory::SendPreLaunchData(){
     flight_manager_.GetAGL(); // Add altimeter data to pre-launch message
     flight_manager_.AglToPacket(packet_ptr, 1);
     packet_ptr += sizeof(uint16_t);
-    *packet_ptr = (uint8_t)accelerometer_init_status_; // Add accelerometer initialization status to pre-launch message
-    packet_ptr += sizeof(uint8_t);
     flight_manager_.GetAccelerometerData(); // Add accelerometer data to pre-launch message
+    if (flight_stats_.accelerometer[flight_stats_.flight_data_array_index].x != 0
+        || flight_stats_.accelerometer[flight_stats_.flight_data_array_index].y != 0
+        || flight_stats_.accelerometer[flight_stats_.flight_data_array_index].z != 0){
+      accelerometer_status_ = MC_OK;
+      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
+    }
+    else{
+      accelerometer_status_ = MC_Rd_Error;
+      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+    }
+    *packet_ptr = (uint8_t)accelerometer_status_; // Add accelerometer initialization status to pre-launch message
+    packet_ptr += sizeof(uint8_t);
     *(uint16_t*)packet_ptr = flight_stats_.accelerometer[flight_stats_.flight_data_array_index].x;
     packet_ptr += sizeof((*flight_stats_.accelerometer).x);
     *(uint16_t*)packet_ptr = flight_stats_.accelerometer[flight_stats_.flight_data_array_index].y;
@@ -155,6 +163,11 @@ void RocketFactory::SendPreLaunchData(){
     *(uint16_t*)packet_ptr = deploy2_trigger_threshold;
     packet_ptr += sizeof(deploy2_trigger_threshold);
     *(uint16_t*)packet_ptr = (uint16_t)rocket_settings_.deploy_signal_duration; // Add deployment signal duration to pre-launch message
+    packet_ptr += sizeof(uint16_t);
+    for (int i = 0; i < DEVICE_NAME_LENGTH; i++){
+      *(char*)packet_ptr = rocket_settings_.device_name[i];
+      packet_ptr++;
+    }
 
     Radio.Send(pre_launch_msg_, sizeof(pre_launch_msg_));
   }
@@ -202,7 +215,7 @@ void RocketFactory::ProcessUART1Char(uint8_t uart_char){
 void RocketFactory::ProcessUART2Char(UART_HandleTypeDef *huart2, uint8_t uart_char){
   rocket_config_.ProcessChar(huart2, uart_char);
 }
-
+/*
 void RocketFactory::DisplayDroguePrimaryDrogueBackup(){
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
@@ -249,3 +262,4 @@ void RocketFactory::ResetDisplayDeployMode(){
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
 }
+*/

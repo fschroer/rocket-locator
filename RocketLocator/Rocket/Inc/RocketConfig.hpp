@@ -26,6 +26,7 @@ enum UserInteractionState
   kEditMainBackupDeployAltitude,
   kEditDeploySignalDuration,
   kEditLoraChannel,
+  kEditDeviceName,
   kDataHome,
   kTestHome,
   kTestDeploy1,
@@ -55,6 +56,7 @@ private:
   const char* dfu_command_ = "dfu\0";
   const char* crlf_ = "\r\n\0";
   const char* cr_ = "\r\0";
+  const char* bs_ = "\b \b\0";
   const char* config_menu_intro_ = "Rocket Locator Configuration\r\n\0";
   const char* config_save_text_ = "Saved Configuration\r\n\r\n\0";
   const char* cancel_text_ = "Cancelled\r\n\r\n\0";
@@ -70,7 +72,9 @@ private:
   const char* main_backup_deploy_altitude_text_ = "6) Main Backup Deploy Altitude (m):\t\0";
   const char* deploy_signal_duration_text_ = "7) Deploy Signal Duration (s):\t\t\0";
   const char* lora_channel_text_ = "8) Lora Channel (0-63):\t\t\t\0";
-  const char* edit_guidance_text_ = "[ = down, ] = up. Hit Enter to update, Esc to cancel.\r\n\0";
+  const char* device_name_text_ = "9) Device Name:\t\t\t\t\0";
+  const char* num_edit_guidance_text_ = "[ = down, ] = up. Hit Enter to update, Esc to cancel.\r\n\0";
+  const char* text_edit_guidance_text_ = "Type text. Hit Enter to update, Esc to cancel.\r\n\0";
   const char* deploy_mode_edit_text_ = "Edit Deploy Mode\r\n\0";
   const char* launch_detect_altitude_edit_text_ = "Edit Launch Detect Altitude (m):\r\n\0";
   const char* drogue_primary_deploy_delay_edit_text_ = "Edit Drogue Primary Deploy Delay (s):\r\n\0";
@@ -79,6 +83,7 @@ private:
   const char* main_backup_deploy_altitude_edit_text_ = "Edit Main Backup Deploy Altitude (m):\r\n\0";
   const char* deploy_signal_duration_edit_text_ = "Edit Deploy Signal Duration (s):\r\n\0";
   const char* lora_channel_edit_text_ = "Edit Lora Channel (0-63):\r\n\0";
+  //const char* device_name_edit_text_ = "Edit Device Name:\r\n\0";
 
   const char* data_menu_intro_ = "Rocket Locator Data Menu\r\n\r\n\0";
   const char* data_menu_header_ = "#  Date       Time     Apogee (m) Time to Apogee (s)\r\n\0";
@@ -125,6 +130,7 @@ private:
   int deploy_signal_duration_;
   int lora_channel_;
   int test_deploy_count_;
+  char device_name_[DEVICE_NAME_LENGTH + 1];
 
   int MakeLine(char *target, const char *source1);
   int MakeLine(char *target, const char *source1, const char *source2);
@@ -137,7 +143,8 @@ private:
   bool StrCmp(char *string1, const char *string2, int length);
   void DisplayConfigSettingsMenu();
   const char* DeployModeString(DeployMode deploy_mode_value);
-  void AdjustConfigSetting(uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths);
+  void AdjustConfigNumericSetting(uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths);
+  void AdjustConfigTextSetting(uint8_t uart_char, char *config_mode_setting);
   void DisplayDataMenu();
   void DisplayTestMenu();
   void ExportData(uint8_t archive_position);

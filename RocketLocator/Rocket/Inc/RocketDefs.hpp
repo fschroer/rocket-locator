@@ -13,6 +13,7 @@
 #define UART_TIMEOUT 5000
 #define CENTURY 100
 #define ALTIMETER_SCALE 10
+#define DEVICE_NAME_LENGTH 10
 
 enum DeployMode
 {
@@ -52,35 +53,37 @@ struct RocketSettings {
   int main_backup_deploy_altitude = 100; // meters
   int deploy_signal_duration = 10; // tenths of a second
   int lora_channel = 0;
+  char device_name[DEVICE_NAME_LENGTH + 1] = {0};
 };
 
 struct FlightStats {
   int launch_date;
   int launch_time;
   float max_altitude;
-  uint16_t max_altitude_sample_count;
+  int max_altitude_sample_count;
   float launch_detect_altitude;
-  uint16_t launch_detect_sample_count;
+  int launch_detect_sample_count;
   float burnout_altitude;
-  uint16_t burnout_sample_count;
+  int burnout_sample_count;
   float nose_over_altitude;
-  uint16_t nose_over_sample_count;
+  int nose_over_sample_count;
   float drogue_primary_deploy_altitude;
-  uint16_t drogue_primary_deploy_sample_count;
+  int drogue_primary_deploy_sample_count;
   float drogue_backup_deploy_altitude;
-  uint16_t drogue_backup_deploy_sample_count;
+  int drogue_backup_deploy_sample_count;
   float main_primary_deploy_altitude;
-  uint16_t main_primary_deploy_sample_count;
+  int main_primary_deploy_sample_count;
   float main_backup_deploy_altitude;
-  uint16_t main_backup_deploy_sample_count;
+  int main_backup_deploy_sample_count;
   float landing_altitude;
-  uint16_t landing_sample_count = 0;
-  uint16_t sample_count = 0;
+  int landing_sample_count = 0;
+  int reserved = 0; //reserved for future use, positioned for backward compatibility
   float g_range_scale = 0;
+  int sample_count = 0;
   FlightStates flight_state = FlightStates::kWaitingLaunch;
   float agl_adjust = 0.0;
   int flight_data_array_index = 0;
-  uint16_t test_data_sample_count = 0;
+  int test_data_sample_count = 0;
   float agl[FLIGHT_DATA_ARRAY_SIZE] = {0.0};
   Accelerometer_t accelerometer[FLIGHT_DATA_ARRAY_SIZE];
 };

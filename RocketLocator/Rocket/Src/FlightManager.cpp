@@ -9,19 +9,19 @@ FlightManager::FlightManager(RocketSettings *rocket_settings, FlightStats *fligh
   SumSquares();
 }
 
-void FlightManager::Begin(EX_Error *accelerometer_init_status, bool *altimeter_init_status){
+void FlightManager::Begin(EX_Error *accelerometer_status, bool *altimeter_init_status){
   //APP_LOG(TS_OFF, VLEVEL_M, "\r\nFlightManager begin\r\n");
   MX_I2C2_Init();
-  if (!(*accelerometer_init_status = accelerometer_.MC3416Init()))
+  if (!(*accelerometer_status = accelerometer_.MC3416Init()))
     HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
   else{
-    for (int i = 0; i < *accelerometer_init_status; i++){
+    for (int i = 0; i < *accelerometer_status; i++){
       HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
       HAL_Delay(500);
       HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
       HAL_Delay(500);
     }
-    APP_LOG(TS_OFF, VLEVEL_M, "\r\nAccelerometer initialization failed: %d\r\n", accelerometer_init_status);
+    APP_LOG(TS_OFF, VLEVEL_M, "\r\nAccelerometer initialization failed: %d\r\n", accelerometer_status);
   }
   HAL_Delay(1000); //Allow time for init status light to stay visible
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
@@ -134,7 +134,7 @@ void FlightManager::GetAccelerometerData(){
   mZ = accelerometer.z;
 }
 
-void FlightManager::UpdateFlightState(){ // Update flight state
+void FlightManager::UpdateFlightState(RocketFile rocket_file){ // Update flight state
   if (flight_stats_->flight_state == FlightStates::kWaitingLaunch && flight_stats_->agl[flight_stats_->flight_data_array_index] > rocket_settings_->launch_detect_altitude // Detect launch
       && velocity_short_sample_ > LAUNCH_VELOCITY// && g_force_short_sample_ > LAUNCH_G_FORCE
       ){ // Minimum altitude, velocity, acceleration
@@ -142,7 +142,11 @@ void FlightManager::UpdateFlightState(){ // Update flight state
     flight_stats_->flight_state = FlightStates::kLaunched;
     flight_stats_->launch_detect_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
     flight_stats_->launch_detect_sample_count = flight_stats_->sample_count;
+    flight_stats_->reserved = 0; // ensure g_range_scale offset is correct
     flight_stats_->g_range_scale = accelerometer_.GetGRangeScale();
+    rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->launch_date);
+    rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->launch_detect_altitude);
+    rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->reserved); // saves g_range_scale, offset from "reserved" for backward compatibility
     //APP_LOG(TS_OFF, VLEVEL_M, "\r\nLaunch: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
   }
 
@@ -157,6 +161,7 @@ void FlightManager::UpdateFlightState(){ // Update flight state
         flight_stats_->flight_state = FlightStates::kBurnout;
         flight_stats_->burnout_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
         flight_stats_->burnout_sample_count = flight_stats_->sample_count;
+        rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->burnout_altitude);
       }
       float sum1 = 0.0, sum2 = 0.0; // Detect nose over
       for (int i = flight_stats_->flight_data_array_index - SAMPLES_PER_SECOND + 1; i < flight_stats_->flight_data_array_index - SAMPLES_PER_SECOND / 2 + 1; i++){
@@ -168,6 +173,8 @@ void FlightManager::UpdateFlightState(){ // Update flight state
         flight_stats_->nose_over_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
         flight_stats_->nose_over_sample_count = flight_stats_->sample_count;
         flight_stats_->flight_state = FlightStates::kNoseover;
+        rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->nose_over_altitude);
+        rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->max_altitude);
         //APP_LOG(TS_OFF, VLEVEL_M, "\r\nNoseover: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
       }
     }
@@ -183,6 +190,7 @@ void FlightManager::UpdateFlightState(){ // Update flight state
       flight_stats_->drogue_primary_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->drogue_primary_deploy_sample_count = flight_stats_->sample_count;
       flight_stats_->flight_state = FlightStates::kDroguePrimaryDeployed;
+      rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->drogue_primary_deploy_altitude);
     }
 
     if (flight_stats_->flight_state < FlightStates::kDrogueBackupDeployed
@@ -198,6 +206,7 @@ void FlightManager::UpdateFlightState(){ // Update flight state
       flight_stats_->drogue_backup_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->drogue_backup_deploy_sample_count = flight_stats_->sample_count;
       flight_stats_->flight_state = FlightStates::kDrogueBackupDeployed;
+      rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->drogue_backup_deploy_altitude);
     }
 
     if (flight_stats_->flight_state < FlightStates::kMainPrimaryDeployed
@@ -214,6 +223,7 @@ void FlightManager::UpdateFlightState(){ // Update flight state
       flight_stats_->flight_state = FlightStates::kMainPrimaryDeployed;
       flight_stats_->main_primary_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->main_primary_deploy_sample_count = flight_stats_->sample_count;
+      rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->main_primary_deploy_altitude);
     }
 
     if (flight_stats_->flight_state < FlightStates::kMainBackupDeployed
@@ -226,6 +236,7 @@ void FlightManager::UpdateFlightState(){ // Update flight state
       flight_stats_->flight_state = FlightStates::kMainBackupDeployed;
       flight_stats_->main_backup_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->main_backup_deploy_sample_count = flight_stats_->sample_count;
+      rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->main_backup_deploy_altitude);
     }
     noseover_time_++;
   }
@@ -247,6 +258,7 @@ void FlightManager::UpdateFlightState(){ // Update flight state
       flight_stats_->flight_state = FlightStates::kLanded;
       flight_stats_->landing_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->landing_sample_count = flight_stats_->sample_count;
+      rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->landing_altitude);
     }
   }
   mFlightState = flight_stats_->flight_state;

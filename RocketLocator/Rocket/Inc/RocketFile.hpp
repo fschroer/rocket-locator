@@ -9,13 +9,13 @@
 
 #define ARCHIVE_PAGE_SIZE 0x800
 #define ROCKET_SETTINGS_BASE_ADDRESS 0x803F800
-#define ALTIMETER_DATA_BASE_ADDRESS 0x8020000
+#define ALTIMETER_DATA_BASE_ADDRESS 0x8027000
 #define ALTIMETER_ARCHIVE_PAGES 2
 #define ALTIMETER_SAVE_BUFFER_SIZE 1
-#define ACCELEROMETER_DATA_BASE_ADDRESS 0x802A000
+#define ACCELEROMETER_DATA_BASE_ADDRESS 0x802F000
 #define ACCELEROMETER_ARCHIVE_PAGES 4
 #define ACCELEROMETER_SAVE_BUFFER_SIZE 3
-#define ARCHIVE_POSITIONS 10
+#define ARCHIVE_POSITIONS 8
 
 class RocketFile{
 public:
@@ -24,6 +24,7 @@ public:
   HAL_StatusTypeDef ReadRocketSettings(RocketSettings *rocket_settings);
   HAL_StatusTypeDef OpenAltimeterArchiveWrite(uint8_t archive_position);
   HAL_StatusTypeDef WriteFlightMetadata(FlightStats *flight_stats);
+  HAL_StatusTypeDef WriteFlightStats(uint32_t flight_stats, uint32_t stat_address);
   HAL_StatusTypeDef WriteAltimeterSample(float agl);
   HAL_StatusTypeDef CloseAltimeterArchive();
   void ReadFlightMetadata(uint8_t archive_position, FlightStats *flight_stats);

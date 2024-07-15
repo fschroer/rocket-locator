@@ -57,6 +57,17 @@ HAL_StatusTypeDef RocketFile::WriteFlightMetadata(FlightStats *flight_stats){
   return HAL_FLASH_Lock();
 }
 
+HAL_StatusTypeDef RocketFile::WriteFlightStats(uint32_t flight_stats, uint32_t stat_address){
+  HAL_StatusTypeDef status = HAL_OK;
+  if ((status = HAL_FLASH_Unlock()) != HAL_OK)
+    return status;
+  if ((status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD
+      , altimeter_data_archive_base_address_ + ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE - archive_metadata_size_
+      * sizeof(uint64_t) + stat_address - flight_stats, *((uint64_t *)stat_address))) != HAL_OK)
+    return status;
+  return HAL_FLASH_Lock();
+}
+
 HAL_StatusTypeDef RocketFile::WriteAltimeterSample(float agl){
   uint16_t uint16_agl = agl > 0 ? int(agl * ALTIMETER_SCALE) : 0;
   if (!MaxAltimeterArchiveSampleIndex(altimeter_data_archive_base_address_, altimeter_data_archive_address_)){
