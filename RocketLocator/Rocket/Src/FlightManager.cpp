@@ -36,7 +36,8 @@ void FlightManager::Begin(EX_Error *accelerometer_status, bool *altimeter_init_s
   Bmp280InitDefaultParams(&bmp280_.params);
   bmp280_.addr = BMP280_I2C_ADDRESS_0;
   bmp280_.i2c = &hi2c2;
-  if (*altimeter_init_status = Bmp280Init(&bmp280_, &bmp280_.params))
+  *altimeter_init_status = Bmp280Init(&bmp280_, &bmp280_.params);
+  if (*altimeter_init_status)
     HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
   else{
     HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
@@ -64,7 +65,7 @@ void FlightManager::IncrementFlightDataQueue(){
       flight_stats_->accelerometer[i].z = flight_stats_->accelerometer[i + 1].z;
     }
   }
-  //serviceBeeper();
+  //ServiceBeeper();
 }
 
 void FlightManager::GetAGL(){
@@ -144,14 +145,13 @@ void FlightManager::UpdateFlightState(RocketFile rocket_file){ // Update flight 
     flight_stats_->launch_detect_sample_count = flight_stats_->sample_count;
     flight_stats_->reserved = 0; // ensure g_range_scale offset is correct
     flight_stats_->g_range_scale = accelerometer_.GetGRangeScale();
-    rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->launch_date);
     rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->launch_detect_altitude);
     rocket_file.WriteFlightStats((uint32_t)flight_stats_, (uint32_t)&flight_stats_->reserved); // saves g_range_scale, offset from "reserved" for backward compatibility
     //APP_LOG(TS_OFF, VLEVEL_M, "\r\nLaunch: %d %3.2f %3.2f %3.2f\r\n", flight_stats_->aglIndex, flight_stats_->agl[flight_stats_->aglIndex], velocityShortSample, velocityLongSample);
   }
 
   if (flight_stats_->flight_state >= FlightStates::kLaunched && flight_stats_->flight_state < FlightStates::kNoseover){
-    updateMaxAltitude();
+    UpdateMaxAltitude();
     if (g_force_short_sample_ > 3.0)
       accelerometer_state_ = AccelerometerStates::kAcceleration;
     else if (g_force_short_sample_ < 1.0)
@@ -285,7 +285,7 @@ void FlightManager::UpdateVelocity(){
   }
 }
 
-void FlightManager::updateMaxAltitude(){
+void FlightManager::UpdateMaxAltitude(){
   if (flight_stats_->agl[flight_stats_->flight_data_array_index] > flight_stats_->max_altitude){ // Update max altitude for apogee determination
     flight_stats_->max_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
     flight_stats_->max_altitude_sample_count = flight_stats_->sample_count;
@@ -344,7 +344,7 @@ void FlightManager::ResetFlightStats(bool events_only){
   }
 }
 
-void FlightManager::serviceBeeper(){
+void FlightManager::ServiceBeeper(){
   //if ((flightStats.armed && flightStats.flightState == flightStates::WAITING_LDA || flightStats.flightState == flightStates::LANDED) && peripheralInterruptCount == 0)
   //  speaker.beep(1, 200);
 }
@@ -360,4 +360,8 @@ void FlightManager::AglToPacket(uint8_t *packet, uint8_t length){
 
 float FlightManager::GetGForceShortSample(){
   return g_force_short_sample_;
+}
+
+float FlightManager::GetVelocityShortSample(){
+  return velocity_short_sample_;
 }

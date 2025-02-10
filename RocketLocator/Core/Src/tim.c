@@ -38,6 +38,9 @@ void MX_TIM2_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   /* USER CODE BEGIN TIM2_Init 1 */
+#ifdef BOARD_TEST
+  TIM_OC_InitTypeDef sConfigOC = {0};
+#endif
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;

@@ -28,7 +28,7 @@ public:
   HAL_StatusTypeDef WriteAltimeterSample(float agl);
   HAL_StatusTypeDef CloseAltimeterArchive();
   void ReadFlightMetadata(uint8_t archive_position, FlightStats *flight_stats);
-  bool ReadAltimeterData(uint8_t archive_position, int sample_count, int max_sample_count, float *agl);
+  bool ReadAltimeterData(uint8_t archive_position, int sample_count, int max_sample_count, uint16_t *agl);
   bool MaxAltimeterArchiveSampleIndex(uint32_t altimeter_data_archive_address, uint32_t altimeter_data_archive_base_address);
   HAL_StatusTypeDef OpenAccelerometerArchiveWrite(uint8_t archive_position);
   HAL_StatusTypeDef WriteAccelerometerSample(Accelerometer_t *accelerometer);
@@ -39,7 +39,7 @@ public:
   void SetValidArchivePosition(uint8_t archive_position, bool valid);
   bool GetValidArchivePosition(uint8_t archive_position);
 private:
-  uint32_t settings_archive_address_ = ROCKET_SETTINGS_BASE_ADDRESS;
+  uint32_t settings_archive_save_address_ = ROCKET_SETTINGS_BASE_ADDRESS;
   uint8_t altimeter_data_buffer_index_ = 0;
   uint64_t altimeter_data_buffer_[ALTIMETER_SAVE_BUFFER_SIZE] = {0};
   uint32_t altimeter_data_archive_base_address_ = ALTIMETER_DATA_BASE_ADDRESS;

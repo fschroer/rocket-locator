@@ -25,6 +25,7 @@
 #include "radio.h"
 
 /* USER CODE BEGIN Includes */
+#include "main.h"
 //#include "RocketDefs.hpp"
 /* USER CODE END Includes */
 
@@ -46,7 +47,7 @@ extern enum DeviceState device_state_;
 #define RX_TIMEOUT_VALUE              3000
 #define TX_TIMEOUT_VALUE              3000
 /*Size of the payload to be sent*/
-#define MAX_APP_BUFFER_SIZE          255
+#define MAX_APP_BUFFER_SIZE          1023
 #if (PAYLOAD_LEN > MAX_APP_BUFFER_SIZE)
 #error PAYLOAD_LEN must be less or equal than MAX_APP_BUFFER_SIZE
 #endif /* (PAYLOAD_LEN > MAX_APP_BUFFER_SIZE) */
@@ -151,16 +152,15 @@ static void OnTxDone(void)
   /* USER CODE BEGIN OnTxDone */
   //HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
   //HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  LoraTxCallback();
+  Radio.Rx(RX_TIMEOUT_VALUE);
   /* USER CODE END OnTxDone */
 }
 
 static void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t LoraSnr_FskCfo)
 {
   /* USER CODE BEGIN OnRxDone */
-  if (size == 5 && payload[0] == 'R' && payload[1] == 'u' && payload[2] == 'n' && !HAL_GPIO_ReadPin(POWER_SENSE_GPIO_Port, POWER_SENSE_Pin))
-    device_state_ = kRunning;
-  else if (size == 6 && payload[0] == 'S' && payload[1] == 't' && payload[2] == 'o' && payload[3] == 'p')
-    device_state_ = kStandby;
+  LoraRxCallback(payload, size, rssi, LoraSnr_FskCfo);
   Radio.Rx(RX_TIMEOUT_VALUE);
   /* USER CODE END OnRxDone */
 }
@@ -168,8 +168,8 @@ static void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t LoraS
 static void OnTxTimeout(void)
 {
   /* USER CODE BEGIN OnTxTimeout */
-  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
+  //HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
   /* USER CODE END OnTxTimeout */
 }
 

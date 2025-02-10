@@ -5,35 +5,39 @@ RocketFile::RocketFile(){
 
 HAL_StatusTypeDef RocketFile::SaveRocketSettings(RocketSettings *rocket_settings){
   HAL_StatusTypeDef status = HAL_OK;
-  if (settings_archive_address_ == ROCKET_SETTINGS_BASE_ADDRESS)
-    if(ErasePages(ROCKET_SETTINGS_BASE_ADDRESS, 1) != HAL_OK)
+  if (settings_archive_save_address_ == ROCKET_SETTINGS_BASE_ADDRESS)
+    if(ErasePages(ROCKET_SETTINGS_BASE_ADDRESS, 1) != HAL_OK) // Erase page for first use or when fully used and restarting
       return HAL_ERROR;
   if ((status = HAL_FLASH_Unlock()) != HAL_OK)
     return status;
   uint64_t* double_word = (uint64_t*)rocket_settings;
   for (uint8_t i = 0; i < ceil((float)sizeof(*rocket_settings) / sizeof(*double_word)); i++){
-    if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, settings_archive_address_, *double_word) != HAL_OK){
+    if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, settings_archive_save_address_, *double_word) != HAL_OK){
       HAL_FLASH_Lock();
       return HAL_ERROR;
     }
-    settings_archive_address_ += sizeof(*double_word);
+    settings_archive_save_address_ += sizeof(*double_word);
     double_word++;
   }
   if ((status = HAL_FLASH_Lock()) != HAL_OK)
     return status;
-  if (settings_archive_address_ >= ROCKET_SETTINGS_BASE_ADDRESS + ARCHIVE_PAGE_SIZE)
-    settings_archive_address_ = ROCKET_SETTINGS_BASE_ADDRESS;
+  if (settings_archive_save_address_ >= ROCKET_SETTINGS_BASE_ADDRESS + ARCHIVE_PAGE_SIZE)
+    settings_archive_save_address_ = ROCKET_SETTINGS_BASE_ADDRESS;
   return HAL_OK;
 }
 
 HAL_StatusTypeDef RocketFile::ReadRocketSettings(RocketSettings *rocket_settings){
   uint64_t* address;
   address = (uint64_t*)ROCKET_SETTINGS_BASE_ADDRESS;
-  while (*address != 0xffffffffffffffff)
-    address++;
+  while (address < (uint64_t*)(ROCKET_SETTINGS_BASE_ADDRESS + ARCHIVE_PAGE_SIZE)) {
+    if (*address != 0xffffffffffffffff)
+      address++;
+    else
+      break;
+  }
   if (address != (uint64_t*)ROCKET_SETTINGS_BASE_ADDRESS) // Use default values if flash memory is not yet initialized
     *rocket_settings = *((RocketSettings *)(address - (uint32_t)ceil((float)sizeof(*rocket_settings) / sizeof(*address))));
-  settings_archive_address_ = (uint32_t)address;
+  settings_archive_save_address_ = (address < (uint64_t*)(ROCKET_SETTINGS_BASE_ADDRESS + ARCHIVE_PAGE_SIZE)) ? (uint32_t)address : ROCKET_SETTINGS_BASE_ADDRESS;
   return HAL_OK;
 }
 
@@ -120,12 +124,12 @@ void RocketFile::ReadFlightMetadata(uint8_t archive_position, FlightStats *fligh
     *((uint8_t *)flight_stats + i) = *((uint8_t *)address + i);
 }
 
-bool RocketFile::ReadAltimeterData(uint8_t archive_position, int sample_index, int max_sample_index, float *agl){
+bool RocketFile::ReadAltimeterData(uint8_t archive_position, int sample_index, int max_sample_index, uint16_t *agl){
   altimeter_data_archive_base_address_ = ALTIMETER_DATA_BASE_ADDRESS + archive_position * ALTIMETER_ARCHIVE_PAGES * ARCHIVE_PAGE_SIZE;
   uint32_t address = altimeter_data_archive_base_address_ + sample_index * sizeof(uint16_t);
 
   if (sample_index < max_sample_index && !MaxAltimeterArchiveSampleIndex(altimeter_data_archive_base_address_, address)){
-    *agl = (float)*(uint16_t *)address / ALTIMETER_SCALE;
+    *agl = *(uint16_t *)address;
     return true;
   }
   return false;

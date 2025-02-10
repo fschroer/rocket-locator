@@ -13,6 +13,7 @@
 #define DATE_STRING_LENGTH 23
 #define ALTIMETER_STRING_LENGTH 7
 #define ACCELEROMETER_STRING_LENGTH 9
+#define TEST_DEPLOY_DURATION 10 * SAMPLES_PER_SECOND
 
 enum UserInteractionState
 {
@@ -38,8 +39,11 @@ class RocketConfig{
 public:
   RocketConfig();
   RocketConfig(DeviceState *device_state, RocketSettings *rocket_settings);
-  void ProcessChar(UART_HandleTypeDef *huart2, uint8_t uart_char);
+  void ProcessChar(uint8_t uart_char);
   void ProcessTestDeploy();
+  int16_t GetTestDeployCount();
+  void ResetTestDeployCount();
+  void SetUserInteractionState(UserInteractionState user_interaction_state);
 private:
   RocketFile rocket_file_;
   RocketSettings *rocket_settings_;
@@ -129,8 +133,8 @@ private:
   int main_backup_deploy_altitude_;
   int deploy_signal_duration_;
   int lora_channel_;
-  int test_deploy_count_;
   char device_name_[DEVICE_NAME_LENGTH + 1];
+  int16_t test_deploy_count_ = TEST_DEPLOY_DURATION;
 
   int MakeLine(char *target, const char *source1);
   int MakeLine(char *target, const char *source1, const char *source2);
@@ -154,5 +158,7 @@ private:
   void DisplayDfuMenu();
   uint8_t StartBootloader();
 };
+
+extern UART_HandleTypeDef huart2;
 
 #endif /* ROCKETCONFIG */

@@ -35,6 +35,12 @@ extern "C" {
 extern TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN Private defines */
+#define TIMCC 1000000
+#define PRESCALER_VALUE     (uint32_t)(((SystemCoreClock) / TIMCC) - 1)
+#define FREQUENCY 4000
+#define ARR TIMCC / FREQUENCY
+#define  PERIOD_VALUE       (uint32_t)(ARR - 1)              /* Period Value  */
+#define  PULSE1_VALUE       (uint32_t)(ARR / 2)              /* Capture Compare 1 Value  */
 
 /* USER CODE END Private defines */
 
