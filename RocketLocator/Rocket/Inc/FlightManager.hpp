@@ -8,7 +8,7 @@
 #include "sys_app.h"
 #include "math.h"
 
-#define TEST
+//#define TEST
 #define AGL_RESET_TIME 60 * SAMPLES_PER_SECOND // Frequency with which altimeter adjustment offsets to ground level
 #define LAUNCH_LOOKBACK_SAMPLES 21 // Must be odd and >= VELOCITY_SAMPLES_LONG
 #define VELOCITY_SAMPLES_LONG 21 // Must be odd and less than FLIGHT_DATA_ARRAY_SIZE
@@ -74,7 +74,8 @@ extern volatile float mAGL;
 extern volatile float mVelocityShortSample;
 extern volatile float mVelocityLongSample;
 extern volatile int mFlightState;
-extern volatile DeployMode mDeployMode;
+extern volatile DeployMode mDeployModeChannel1;
+extern volatile DeployMode mDeployModeChannel2;
 extern volatile float mX, mY, mZ;
 extern volatile float m_g_force;
 extern volatile int m_rocket_service_state;

@@ -110,10 +110,9 @@ void Error_Handler(void);
 #define USARTx_TX_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
-#define BOARD_REVISION_A_04
+//#define BOARD_REVISION_A_04
 //#define BOARD_REVISION_A_05
-//#define BOARD_REVISION_A_06
-//#define BOARD_TEST
+#define BOARD_REVISION_A_06
 
 #ifdef BOARD_REVISION_A_06
 #define LED3_Pin GPIO_PIN_5

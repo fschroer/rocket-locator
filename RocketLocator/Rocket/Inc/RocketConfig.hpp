@@ -19,7 +19,8 @@ enum UserInteractionState
 {
   kWaitingForCommand = 0,
   kConfigHome,
-  kEditDeployMode,
+  kEditDeployChannel1Mode,
+  kEditDeployChannel2Mode,
   kEditLaunchDetectAltitude,
   kEditDroguePrimaryDeployDelay,
   kEditDrogueBackupDeployDelay,
@@ -64,11 +65,12 @@ private:
   const char* config_menu_intro_ = "Rocket Locator Configuration\r\n\0";
   const char* config_save_text_ = "Saved Configuration\r\n\r\n\0";
   const char* cancel_text_ = "Cancelled\r\n\r\n\0";
-  const char* deploy_mode_text_ = "1) Deploy Mode:\t\t\t\t\0";
-  const char* drogue_primary_drogue_backup_text_ = "Drogue Primary, Drogue Backup\0";
-  const char* main_primary_main_backup_text_ = "Main Primary, Main Backup    \0";
-  const char* drogue_primary_main_primary_text_ = "Drogue Primary, Main Primary \0";
-  const char* drogue_backup_main_backup_text_ = "Drogue Backup, Main Backup   \0";
+  const char* deployment_channel_1_mode_text_ = "0) Deployment Channel 1 Mode:\t\t\t\t\0";
+  const char* deployment_channel_2_mode_text_ = "1) Deployment Channel 2 Mode:\t\t\t\t\0";
+  const char* drogue_primary_text_ = "Drogue Primary\0";
+  const char* drogue_backup_text_ = "Drogue Backup \0";
+  const char* main_primary_text_ = "Main Primary  \0";
+  const char* main_backup_text_ = "Main Backup   \0";
   const char* launch_detect_altitude_text_ = "2) Launch Detect Altitude (m):\t\t\0";
   const char* drogue_primary_deploy_delay_text_ = "3) Drogue Primary Deploy Delay (s):\t\0";
   const char* drogue_backup_deploy_delay_text_ = "4) Drogue Backup Deploy Delay (s):\t\0";
@@ -125,7 +127,8 @@ private:
   const char* landing_altitude_text = "Landing: \0";
   const char* landing_sample_count_text = "Landing time: \0";
 
-  DeployMode deploy_mode_;
+  DeployMode deployment_channel_1_mode_;
+  DeployMode deployment_channel_2_mode_;
   int launch_detect_altitude_;
   int drogue_primary_deploy_delay_;
   int drogue_backup_deploy_delay_;
@@ -147,6 +150,7 @@ private:
   bool StrCmp(char *string1, const char *string2, int length);
   void DisplayConfigSettingsMenu();
   const char* DeployModeString(DeployMode deploy_mode_value);
+  void AdjustDeploymentChannelMode(uint8_t uart_char, DeployMode *deploy_mode);
   void AdjustConfigNumericSetting(uint8_t uart_char, int *config_mode_setting, int max_setting_value, bool tenths);
   void AdjustConfigTextSetting(uint8_t uart_char, char *config_mode_setting);
   void DisplayDataMenu();

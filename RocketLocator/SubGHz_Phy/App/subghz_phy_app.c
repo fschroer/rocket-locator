@@ -47,7 +47,7 @@ extern enum DeviceState device_state_;
 #define RX_TIMEOUT_VALUE              3000
 #define TX_TIMEOUT_VALUE              3000
 /*Size of the payload to be sent*/
-#define MAX_APP_BUFFER_SIZE          1023
+#define MAX_APP_BUFFER_SIZE          255
 #if (PAYLOAD_LEN > MAX_APP_BUFFER_SIZE)
 #error PAYLOAD_LEN must be less or equal than MAX_APP_BUFFER_SIZE
 #endif /* (PAYLOAD_LEN > MAX_APP_BUFFER_SIZE) */

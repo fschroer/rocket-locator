@@ -5,8 +5,10 @@ RocketFactory::RocketFactory() {
   rocket_file_.ReadRocketSettings(&rocket_settings_);
   if (rocket_settings_.archive_position > ARCHIVE_POSITIONS - 1)
     rocket_settings_.archive_position = 0;
-  if (rocket_settings_.deploy_mode > kMaxDeployModeValue - 1)
-    rocket_settings_.deploy_mode = DEFAULT_DEPLOY_MODE;
+  if (rocket_settings_.deployment_channel_1_mode > kMainBackup)
+    rocket_settings_.deployment_channel_1_mode = DEFAULT_DEPLOYMENT_CHANNEL_1_MODE;
+  if (rocket_settings_.deployment_channel_2_mode > kMainBackup)
+    rocket_settings_.deployment_channel_2_mode = DEFAULT_DEPLOYMENT_CHANNEL_2_MODE;
   if (rocket_settings_.launch_detect_altitude > MAX_LAUNCH_DETECT_ALTITUDE)
     rocket_settings_.launch_detect_altitude = DEFAULT_LAUNCH_DETECT_ALTITUDE;
   if (rocket_settings_.drogue_primary_deploy_delay > MAX_DROGUE_PRIMARY_DEPLOY_DELAY)
@@ -47,10 +49,11 @@ void RocketFactory::ProcessRocketEvents(uint8_t rocket_service_count) {
     HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   switch (device_state_){
     case DeviceState::kStandby:
-      if (rocket_service_count == SAMPLES_PER_SECOND - 10){
+      if(rocket_service_count == SAMPLES_PER_SECOND - 10){
         battery_voltage_mvolt_ = GetBatteryLevel();
         TransmitLEDsOn();
         SendPreLaunchData();
+        HAL_TIM_PWM_Stop(&htim16, TIM_CHANNEL_1);
       }
       break;
     case DeviceState::kRunning:
@@ -99,12 +102,41 @@ void RocketFactory::ProcessRocketEvents(uint8_t rocket_service_count) {
 //        if (flight_stats_.flight_state > flightStates::kWaitingLaunch && flight_stats_.flight_state < flightStates::kLanded)
 //          SendTelemetryData();
       if (rocket_service_count == SAMPLES_PER_SECOND - 10){ // Lower frequency conserves battery.
-        if (flight_stats_.flight_state == FlightStates::kWaitingLaunch){ // Blink LoRa transmit LED for visual validation until liftoff
+//        if (flight_stats_.flight_state == FlightStates::kWaitingLaunch){ // Blink LoRa transmit LED for visual validation
           TransmitLEDsOn();
-        }
+//        }
         SendTelemetryData();
       }
       flight_manager_.IncrementFlightDataQueue();
+      switch (rocket_service_count){
+        case 0:
+          HAL_TIM_PWM_Stop(&htim16, TIM_CHANNEL_1);
+          htim16.Instance->PSC = 420;
+          if (HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1) != HAL_OK)
+            HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+          break;
+        case 1:
+          HAL_TIM_PWM_Stop(&htim16, TIM_CHANNEL_1);
+          htim16.Instance->PSC = 410;
+          if (HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1) != HAL_OK)
+            HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+          break;
+        case 2:
+          HAL_TIM_PWM_Stop(&htim16, TIM_CHANNEL_1);
+          htim16.Instance->PSC = 400;
+          if (HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1) != HAL_OK)
+            HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+          break;
+        case 3:
+          HAL_TIM_PWM_Stop(&htim16, TIM_CHANNEL_1);
+          htim16.Instance->PSC = 390;
+          if (HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1) != HAL_OK)
+            HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+          break;
+        case 4:
+          HAL_TIM_PWM_Stop(&htim16, TIM_CHANNEL_1);
+          break;
+      }
       break;
     case DeviceState::kConfig:
       break;
@@ -161,8 +193,10 @@ void RocketFactory::SendPreLaunchData() {
           packet_ptr += sizeof((*flight_stats_.accelerometer).y);
           *(uint16_t*)packet_ptr = flight_stats_.accelerometer[flight_stats_.flight_data_array_index].z; // Add accelerometer z to pre-launch message
           packet_ptr += sizeof((*flight_stats_.accelerometer).z);
-          *(DeployMode*)packet_ptr = rocket_settings_.deploy_mode;
-          packet_ptr += sizeof(rocket_settings_.deploy_mode);
+          *(DeployMode*)packet_ptr = rocket_settings_.deployment_channel_1_mode;
+          packet_ptr += sizeof(rocket_settings_.deployment_channel_1_mode);
+          *(DeployMode*)packet_ptr = rocket_settings_.deployment_channel_2_mode;
+          packet_ptr += sizeof(rocket_settings_.deployment_channel_2_mode);
           *(int*)packet_ptr = rocket_settings_.launch_detect_altitude;
           packet_ptr += sizeof(rocket_settings_.launch_detect_altitude);
           *(int*)packet_ptr = rocket_settings_.drogue_primary_deploy_delay;
@@ -263,7 +297,7 @@ void RocketFactory::SendFlightProfileMetadata() {
       packet_ptr += sizeof(flight_stats.launch_time);
       *(float*)packet_ptr = flight_stats.max_altitude;
       packet_ptr += sizeof(flight_stats.max_altitude);
-      *(float*)packet_ptr = (float)flight_stats.max_altitude_sample_count / SAMPLES_PER_SECOND;
+      *(float*)packet_ptr = (float)flight_stats.drogue_primary_deploy_sample_count / SAMPLES_PER_SECOND;
       packet_ptr += sizeof(float);
     }
     else {
@@ -277,7 +311,6 @@ void RocketFactory::SendFlightProfileMetadata() {
       packet_ptr += sizeof(float);
     }
   }
-  //Radio.Send((uint8_t*)lora_startup_message_, strlen(lora_startup_message_));
   Radio.Send(flight_profile_metadata_msg_, sizeof(flight_profile_metadata_msg_));
 }
 
@@ -289,21 +322,19 @@ void RocketFactory::SendFlightProfileData(uint8_t archive_position) {
   int sample_index = 0;
   uint16_t agl = 0;
   Accelerometer_t accelerometer;
-  bool accelerometer_data_present = true;
 
   uint8_t* packet_ptr = flight_profile_data_msg_ + LORA_MSG_TYPE_SIZE;
   HAL_Delay(60); // Pause to ensure receiver has finished processing other packets (total first pause = 60 + 40 = 100ms)
   while (rocket_file_.ReadAltimeterData(archive_position, sample_index, flight_data_stats.landing_sample_count, &agl)){
     rocket_file_.ReadAccelerometerData(archive_position, sample_index
         , flight_data_stats.drogue_primary_deploy_sample_count, &accelerometer);
-    accelerometer_data_present = (accelerometer.x != -1 || accelerometer.y != -1 || accelerometer.z != -1);
     if (packet_ptr == flight_profile_data_msg_ + LORA_MSG_TYPE_SIZE) {
       *packet_ptr = packet_index++; // packet sequence
       packet_ptr++;
     }
     *(uint16_t*)packet_ptr = agl;
     packet_ptr += sizeof(uint16_t);
-    if (accelerometer_data_present) {
+    if (sample_index < flight_data_stats.drogue_primary_deploy_sample_count) {
       *(Accelerometer_t*)packet_ptr = accelerometer;
       packet_ptr += sizeof(accelerometer);
     }
@@ -314,8 +345,16 @@ void RocketFactory::SendFlightProfileData(uint8_t archive_position) {
       Radio.Send(flight_profile_data_msg_, sizeof(flight_profile_data_msg_));
       ready_to_send_ = false;
       packet_ptr = flight_profile_data_msg_ + LORA_MSG_TYPE_SIZE;
-      sample_index = 0;
     }
+  }
+  if (packet_ptr - flight_profile_data_msg_ - LORA_MSG_TYPE_SIZE - FLIGHT_DATA_SEQUENCE_SIZE != FLIGHT_DATA_MESSAGE_SIZE) {
+    if (agl != 0) {
+      *(uint16_t*)packet_ptr = 0;
+      packet_ptr += sizeof(uint16_t);
+    }
+    while (!ready_to_send_) HAL_Delay(10);
+    HAL_Delay(25); // Pause to ensure receiver processes prior packets
+    Radio.Send(flight_profile_data_msg_, sizeof(flight_profile_data_msg_));
   }
 }
 
@@ -342,15 +381,16 @@ void RocketFactory::ProcessIncomingLoRaMessage(uint8_t *payload, uint16_t size, 
     //HAL_UART_Transmit(&huart2, (uint8_t*)"Stop", 3, UART_TIMEOUT);
   }
   else if (payload[0] == 'C' && payload[1] == 'F' && payload[2] == 'G') {
-    rocket_settings_.deploy_mode = (DeployMode)payload[3];
-    rocket_settings_.launch_detect_altitude = *(uint16_t*)(payload + 4);
-    rocket_settings_.drogue_primary_deploy_delay = (uint8_t)payload[6];
-    rocket_settings_.drogue_backup_deploy_delay = (uint8_t)payload[7];
-    rocket_settings_.main_primary_deploy_altitude = *(uint16_t*)(payload + 8);
-    rocket_settings_.main_backup_deploy_altitude = *(uint16_t*)(payload + 10);
-    rocket_settings_.deploy_signal_duration = (uint8_t)payload[12];
+    rocket_settings_.deployment_channel_1_mode = (DeployMode)payload[3];
+    rocket_settings_.deployment_channel_2_mode = (DeployMode)payload[4];
+    rocket_settings_.launch_detect_altitude = *(uint16_t*)(payload + 5);
+    rocket_settings_.drogue_primary_deploy_delay = (uint8_t)payload[7];
+    rocket_settings_.drogue_backup_deploy_delay = (uint8_t)payload[8];
+    rocket_settings_.main_primary_deploy_altitude = *(uint16_t*)(payload + 9);
+    rocket_settings_.main_backup_deploy_altitude = *(uint16_t*)(payload + 11);
+    rocket_settings_.deploy_signal_duration = (uint8_t)payload[13];
     for (int i = 0; i < DEVICE_NAME_LENGTH + 1; i++)
-      rocket_settings_.device_name[i] = (char)payload[i + 13];
+      rocket_settings_.device_name[i] = (char)payload[i + 14];
     rocket_file_.SaveRocketSettings(&rocket_settings_);
   }
   else if (payload[0] == 'F' && payload[1] == 'P' && payload[2] == 'M') {
@@ -416,52 +456,3 @@ uint16_t RocketFactory::GetBatteryLevel() {
 void RocketFactory::ReadyToSend() {
   ready_to_send_ = true;
 }
-
-/*
-void RocketFactory::DisplayDroguePrimaryDrogueBackup(){
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
-}
-
-void RocketFactory::DisplayMainPrimaryMainBackup(){
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
-}
-
-void RocketFactory::DisplayDroguePrimaryMainPrimary(){
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
-}
-
-void RocketFactory::DisplayDrogueBackupMainBackup(){
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
-}
-
-void RocketFactory::SetDisplayDeployMode(){
-  switch (rocket_settings_.deploy_mode){
-  case DeployMode::kDroguePrimaryDrogueBackup:
-  	DisplayDroguePrimaryDrogueBackup();
-  	break;
-  case DeployMode::kMainPrimaryMainBackup:
-  	DisplayMainPrimaryMainBackup();
-  	break;
-  case DeployMode::kDroguePrimaryMainPrimary:
-  	DisplayDroguePrimaryMainPrimary();
-  	break;
-  case DeployMode::kDrogueBackupMainBackup:
-  	DisplayDrogueBackupMainBackup();
-  	break;
-  }
-}
-
-void RocketFactory::ResetDisplayDeployMode(){
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
-}
-*/

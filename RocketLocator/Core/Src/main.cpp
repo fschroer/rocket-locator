@@ -30,7 +30,8 @@ volatile float mAGL = 0.0;
 volatile float mVelocityShortSample = 0.0;
 volatile float mVelocityLongSample = 0.0;
 volatile int mFlightState = FlightStates::kWaitingLaunch;
-volatile DeployMode mDeployMode = DeployMode::kDroguePrimaryDrogueBackup;
+volatile DeployMode mDeployMode1 = DeployMode::kDroguePrimary;
+volatile DeployMode mDeployMode2 = DeployMode::kMainPrimary;
 volatile float mX = 0.0, mY = 0.0, mZ = 0.0;
 volatile float m_g_force = 0.0;
 volatile int m_rocket_service_state = 0;
@@ -67,56 +68,26 @@ int main(void) {
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
   rocket_factory_.Begin();
   MX_TIM2_Init();
-#ifndef BOARD_TEST
   HAL_TIM_Base_Start(&htim2);
-#endif
+  MX_TIM16_Init();
+//  HAL_TIM_Base_Start(&htim16);
 #ifndef BOARD_REVISION_A_04
   MX_ADC_Init();
   Activate_ADC();
 #endif
-  //htim2.Instance->CCR1 = 127; //duty cycle on scale of 0-255
+  htim16.Instance->PSC = 420;
+  if (HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1) != HAL_OK)
+  {
+    /* PWM Generation Error */
+    HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+  }
+  HAL_Delay(500);
+  if (HAL_TIM_PWM_Stop(&htim16, TIM_CHANNEL_1) != HAL_OK)
+  {
+    /* PWM Generation Error */
+    HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+  }
   while (1){
-#ifdef BOARD_TEST
-    htim2.Instance->PSC = 79;
-    if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1) != HAL_OK)
-    {
-      /* PWM Generation Error */
-      Error_Handler();
-    }
-    HAL_Delay (50);
-    if (HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_1) != HAL_OK)
-    {
-      /* PWM Generation Error */
-      Error_Handler();
-    }
-    HAL_Delay (50);
-    htim2.Instance->PSC = 75;
-    if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1) != HAL_OK)
-    {
-      /* PWM Generation Error */
-      Error_Handler();
-    }
-    HAL_Delay (50);
-    if (HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_1) != HAL_OK)
-    {
-      /* PWM Generation Error */
-      Error_Handler();
-    }
-    HAL_Delay (50);
-    if (HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1) != HAL_OK)
-    {
-      /* PWM Generation Error */
-      Error_Handler();
-    }
-    HAL_Delay (50);
-    if (HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_1) != HAL_OK)
-    {
-      /* PWM Generation Error */
-      Error_Handler();
-    }
-    HAL_Delay (1750);
-#endif
-#ifndef BOARD_TEST
     tim2_time = __HAL_TIM_GET_COUNTER(&htim2);
   	if (tim2_time - previous_tim2_time >= sample_time){
       m_rocket_service_state = 1;
@@ -129,7 +100,6 @@ int main(void) {
         tim2_count = 0;
       m_uart1_rec = 0;
     }
-#endif
   }
 }
 
@@ -188,7 +158,6 @@ void LoraRxCallback(uint8_t *payload, uint16_t size, int16_t rssi, int8_t LoraSn
 
 void UART1_CharReception_Callback(void) {
   m_uart1_rec = 1;
-#ifndef BOARD_TEST
   previous_uart_time = uart_time;
   uart_time = __HAL_TIM_GET_COUNTER(&htim2);
   if (uart_time - previous_uart_time > 24000000){
@@ -204,7 +173,6 @@ void UART1_CharReception_Callback(void) {
     tim2_count = 0;
     previous_tim2_time = __HAL_TIM_GET_COUNTER(&htim2);
   }
-#endif
   /* Read Received character. RXNE flag is cleared by reading of RDR register */
   rocket_factory_.ProcessUART1Char(LL_USART_ReceiveData8(USART1));
   //HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin); /* LED_BLUE */

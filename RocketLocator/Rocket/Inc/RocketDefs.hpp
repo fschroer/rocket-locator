@@ -22,7 +22,8 @@
 #define DEVICE_NAME_LENGTH 12
 
 #define DEFAULT_ARCHIVE_POSITION 0
-#define DEFAULT_DEPLOY_MODE kDroguePrimaryDrogueBackup
+#define DEFAULT_DEPLOYMENT_CHANNEL_1_MODE kDroguePrimary
+#define DEFAULT_DEPLOYMENT_CHANNEL_2_MODE kMainPrimary
 #define DEFAULT_LAUNCH_DETECT_ALTITUDE 30
 #define DEFAULT_DROGUE_PRIMARY_DEPLOY_DELAY 0
 #define DEFAULT_DROGUE_BACKUP_DEPLOY_DELAY 20
@@ -33,11 +34,10 @@
 
 enum DeployMode
 {
-  kDroguePrimaryDrogueBackup = 0,
-  kMainPrimaryMainBackup,
-  kDroguePrimaryMainPrimary,
-  kDrogueBackupMainBackup,
-  kMaxDeployModeValue
+  kDroguePrimary = 0,
+  kDrogueBackup,
+  kMainPrimary,
+  kMainBackup
 };
 
 enum FlightStates
@@ -62,7 +62,8 @@ enum AccelerometerStates
 
 struct RocketSettings {
   uint8_t archive_position = 0;
-  DeployMode deploy_mode = kDroguePrimaryDrogueBackup;
+  DeployMode deployment_channel_1_mode = kDroguePrimary;
+  DeployMode deployment_channel_2_mode = kMainPrimary;
   uint16_t launch_detect_altitude = 30; // meters
   uint8_t drogue_primary_deploy_delay = 0; // tenths of a second
   uint8_t drogue_backup_deploy_delay = 20; // tenths of a second

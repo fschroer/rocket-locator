@@ -183,9 +183,13 @@ void FlightManager::UpdateFlightState(RocketFile rocket_file){ // Update flight 
   if (flight_stats_->flight_state >= FlightStates::kNoseover){
     if (flight_stats_->flight_state < FlightStates::kDroguePrimaryDeployed
         && noseover_time_ >= SAMPLES_PER_SECOND * rocket_settings_->drogue_primary_deploy_delay / 10){ // Deploy drogue primary
-      if (rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryDrogueBackup || rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryMainPrimary){
+      if (rocket_settings_->deployment_channel_1_mode == DeployMode::kDroguePrimary){
         deploy_1_time_ = 0;
         HAL_GPIO_WritePin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin, GPIO_PIN_SET);
+      }
+      if (rocket_settings_->deployment_channel_2_mode == DeployMode::kDroguePrimary){
+        deploy_2_time_ = 0;
+        HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_SET);
       }
       flight_stats_->drogue_primary_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->drogue_primary_deploy_sample_count = flight_stats_->sample_count;
@@ -195,13 +199,13 @@ void FlightManager::UpdateFlightState(RocketFile rocket_file){ // Update flight 
 
     if (flight_stats_->flight_state < FlightStates::kDrogueBackupDeployed
         && noseover_time_ >= SAMPLES_PER_SECOND * rocket_settings_->drogue_backup_deploy_delay / 10){ // Deploy drogue backup
-      if (rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryDrogueBackup){
-        deploy_2_time_ = 0;
-        HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_SET);
-      }
-      else if (rocket_settings_->deploy_mode == DeployMode::kDrogueBackupMainBackup){
+      if (rocket_settings_->deployment_channel_1_mode == DeployMode::kDrogueBackup){
         deploy_1_time_ = 0;
         HAL_GPIO_WritePin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin, GPIO_PIN_SET);
+      }
+      if (rocket_settings_->deployment_channel_2_mode == DeployMode::kDrogueBackup){
+        deploy_2_time_ = 0;
+        HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_SET);
       }
       flight_stats_->drogue_backup_deploy_altitude = flight_stats_->agl[flight_stats_->flight_data_array_index];
       flight_stats_->drogue_backup_deploy_sample_count = flight_stats_->sample_count;
@@ -212,11 +216,11 @@ void FlightManager::UpdateFlightState(RocketFile rocket_file){ // Update flight 
     if (flight_stats_->flight_state < FlightStates::kMainPrimaryDeployed
         && (flight_stats_->agl[flight_stats_->flight_data_array_index] <= rocket_settings_->main_primary_deploy_altitude
             || velocity_short_sample_ > FREE_FALL_THRESHOLD)){ // Deploy main primary
-      if (rocket_settings_->deploy_mode == DeployMode::kMainPrimaryMainBackup){
+      if (rocket_settings_->deployment_channel_1_mode == DeployMode::kMainPrimary){
         deploy_1_time_ = 0;
         HAL_GPIO_WritePin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin, GPIO_PIN_SET);
       }
-      else if (rocket_settings_->deploy_mode == DeployMode::kDroguePrimaryMainPrimary){
+      if (rocket_settings_->deployment_channel_2_mode == DeployMode::kMainPrimary){
         deploy_2_time_ = 0;
         HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_SET);
       }
@@ -229,7 +233,11 @@ void FlightManager::UpdateFlightState(RocketFile rocket_file){ // Update flight 
     if (flight_stats_->flight_state < FlightStates::kMainBackupDeployed
         && (flight_stats_->agl[flight_stats_->flight_data_array_index] <= rocket_settings_->main_backup_deploy_altitude
             || velocity_short_sample_ > FREE_FALL_THRESHOLD)){ // Deploy main backup
-      if (rocket_settings_->deploy_mode == DeployMode::kMainPrimaryMainBackup || rocket_settings_->deploy_mode == DeployMode::kDrogueBackupMainBackup){
+      if (rocket_settings_->deployment_channel_1_mode == DeployMode::kMainBackup){
+        deploy_1_time_ = 0;
+        HAL_GPIO_WritePin(DEPLOY_1_GPIO_Port, DEPLOY_1_Pin, GPIO_PIN_SET);
+      }
+      if (rocket_settings_->deployment_channel_2_mode == DeployMode::kMainBackup){
         deploy_2_time_ = 0;
         HAL_GPIO_WritePin(DEPLOY_2_GPIO_Port, DEPLOY_2_Pin, GPIO_PIN_SET);
       }

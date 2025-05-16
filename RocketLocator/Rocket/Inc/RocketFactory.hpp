@@ -11,11 +11,13 @@
 #include "radio.h"
 //#include "usart.h"
 //#include "subghz_phy_app.h"
+#include "tim.h"
 
 #define LORA_MSG_TYPE_SIZE 3
 #define FLIGHT_DATA_SEQUENCE_SIZE 1
 #define FLIGHT_STATS_MSG_SIZE 81
-#define FLIGHT_DATA_MESSAGE_SIZE 240
+#define FLIGHT_DATA_MESSAGE_SAMPLES 30
+#define FLIGHT_DATA_MESSAGE_SIZE (FLIGHT_DATA_MESSAGE_SAMPLES * (sizeof(uint16_t) + sizeof(Accelerometer_t))) // samples * agl size * accelerometer size
 
 #define ADC_CALIBRATION_TIMEOUT_MS       (   1U)
 #define ADC_ENABLE_TIMEOUT_MS            (   1U)
@@ -103,7 +105,8 @@ private:
     + sizeof(uint8_t) // Device status: locator state, altimeter, accelerometer, deployment channel 1, deployment channel 2
     + sizeof(uint16_t) // AGL
     + sizeof(Accelerometer_t) // Raw accelerometer x, y, z values
-    + sizeof(rocket_settings_.deploy_mode) // Locator configuration
+    + sizeof(rocket_settings_.deployment_channel_1_mode) // Locator configuration
+    + sizeof(rocket_settings_.deployment_channel_2_mode)
     + sizeof(rocket_settings_.launch_detect_altitude)
     + sizeof(rocket_settings_.drogue_primary_deploy_delay)
     + sizeof(rocket_settings_.drogue_backup_deploy_delay)
@@ -128,7 +131,7 @@ private:
     + (sizeof(int) // Date
     + sizeof(int) // Time
     + sizeof(float) // Apogee
-    + sizeof(float)) // Time to apogee
+    + sizeof(float)) // Time to drogue
     * ARCHIVE_POSITIONS
     ] = {'F', 'P', 'M'};
   uint8_t flight_profile_data_msg_[LORA_MSG_TYPE_SIZE
